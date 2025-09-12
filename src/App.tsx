@@ -1,13 +1,10 @@
 
 import './App.css'
+import { AppRouter } from './components'
 
 function App() {
-
-  return (
-    <>
-     Zork
-    </>
-  )
+  return <AppRouter />
 }
 
 export default App
+

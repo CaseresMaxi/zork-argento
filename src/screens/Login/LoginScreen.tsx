@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { LoginCredentials } from '../../types';
+import { Link, useNavigate } from 'react-router-dom';
+import { Input } from '../../components';
 import { useAuth } from '../../hooks';
-import { Input, Button } from '../../components';
+import { LoginCredentials } from '../../types';
+import { Button } from '@/components/ui/button';
 
 const LoginScreen: React.FC = () => {
   const [credentials, setCredentials] = useState<LoginCredentials>({

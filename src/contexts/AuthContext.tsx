@@ -71,10 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthState(prev => ({ ...prev, isLoading: true }));
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       return { success: true };
-    } catch (error: unknown) {
+    } catch {
       setAuthState(prev => ({ ...prev, isLoading: false }));
       
-      const validationError = createValidationError('password', 'Credenciales incorrectas. Verifica tu email y contraseña');
+      const validationError = createValidationError('password', 'Che, esas credenciales no están bien. Fijate el email y la contraseña');
       
       throw validationError;
     }
@@ -85,30 +85,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthState(prev => ({ ...prev, isLoading: true }));
       await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
       
       // Map Firebase errors to Yup validation errors
       let validationError: ValidationError;
       
-      switch (error.code) {
+      switch ((error as { code?: string }).code) {
         case 'auth/email-already-in-use':
-          validationError = createValidationError('email', 'Ya existe una cuenta con este correo electrónico');
+          validationError = createValidationError('email', 'Che, ya hay una cuenta con ese email');
           break;
         case 'auth/invalid-email':
-          validationError = createValidationError('email', 'El correo electrónico no es válido');
+          validationError = createValidationError('email', 'Ese email no parece válido, eh');
           break;
         case 'auth/weak-password':
-          validationError = createValidationError('password', 'La contraseña es muy débil. Debe tener al menos 6 caracteres');
+          validationError = createValidationError('password', 'La contraseña está muy débil. Tiene que tener al menos 6 caracteres');
           break;
         case 'auth/operation-not-allowed':
           validationError = createValidationError('email', 'El registro con email no está habilitado');
           break;
         case 'auth/network-request-failed':
-          validationError = createValidationError('email', 'Error de conexión. Verifica tu internet');
+          validationError = createValidationError('email', 'Error de conexión. Fijate tu internet, che');
           break;
         default:
-          validationError = createValidationError('email', 'Error al crear la cuenta. Intenta de nuevo');
+          validationError = createValidationError('email', 'Error al crear la cuenta. Probá de nuevo, dale');
       }
       
       throw validationError;

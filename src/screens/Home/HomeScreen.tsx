@@ -38,16 +38,16 @@ const HomeScreen: React.FC = () => {
     <div className="home-screen">
       <header className="home-header glass-effect">
         <div>
-          <h1 className="gradient-text">Welcome to Zork Argento</h1>
-          <p className="text-secondary">Your adventure awaits</p>
+          <h1 className="gradient-text">¡Bienvenido a Zork Argento!</h1>
+          <p className="text-secondary">Tu aventura te está esperando, che</p>
         </div>
         <div className="user-info">
           <div className="user-details">
-            <span className="user-greeting">Hello, {user?.name}!</span>
-            <span className="user-status">Online</span>
+            <span className="user-greeting">¡Hola, {user?.name}!</span>
+            <span className="user-status">Conectado</span>
           </div>
           <Button onClick={handleLogout} variant="secondary" size="sm" fullWidth={false}>
-            Logout
+            Salir
           </Button>
         </div>
       </header>
@@ -56,8 +56,8 @@ const HomeScreen: React.FC = () => {
 
         <div className="chat-interface">
           <div className="chat-header">
-            <h2>Create Your Adventure</h2>
-            <p className="text-secondary">Describe the adventure you want to experience</p>
+            <h2>Creá tu aventura</h2>
+            <p className="text-secondary">Contanos qué aventura querés vivir</p>
           </div>
           
           <div className="chat-container">
@@ -67,7 +67,7 @@ const HomeScreen: React.FC = () => {
               <div className="chat-input-wrapper">
                 <textarea
                   className="chat-input"
-                  placeholder="Describe tu aventura... (ej: 'Una aventura épica en un castillo embrujado donde debo rescatar a un dragón')"
+                  placeholder="Contanos tu aventura... (ej: 'Una aventura épica en un castillo embrujado donde tengo que rescatar a un dragón')"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -81,7 +81,7 @@ const HomeScreen: React.FC = () => {
                   className="send-button"
                   variant="primary"
                 >
-                Crear Zork
+                ¡Dale, creá el Zork!
                 </Button>
               </div>
             </div>
@@ -92,28 +92,28 @@ const HomeScreen: React.FC = () => {
           <h2>Mis Zorks 🧉</h2>
           <ul>
             <li>
-              <strong>User Authentication</strong>
-              <span>Secure login and registration system</span>
+              <strong>Autenticación de usuarios</strong>
+              <span>Sistema seguro de login y registro</span>
             </li>
             <li>
-              <strong>Modern UI Components</strong>
-              <span>Beautiful, responsive design elements</span>
+              <strong>Componentes modernos</strong>
+              <span>Diseño hermoso y responsivo</span>
             </li>
             <li>
-              <strong>TypeScript Support</strong>
-              <span>Type-safe development experience</span>
+              <strong>Soporte TypeScript</strong>
+              <span>Desarrollo con tipos seguros</span>
             </li>
             <li>
-              <strong>React Router Navigation</strong>
-              <span>Seamless page transitions</span>
+              <strong>Navegación con React Router</strong>
+              <span>Transiciones suaves entre páginas</span>
             </li>
             <li>
-              <strong>Dark Theme</strong>
-              <span>Easy on the eyes, modern aesthetic</span>
+              <strong>Tema oscuro</strong>
+              <span>Fácil para los ojos, estética moderna</span>
             </li>
             <li>
-              <strong>Responsive Design</strong>
-              <span>Works perfectly on all devices</span>
+              <strong>Diseño responsivo</strong>
+              <span>Funciona perfecto en todos los dispositivos</span>
             </li>
           </ul>
         </div>

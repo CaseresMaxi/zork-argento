@@ -15,16 +15,16 @@ const SignupScreen: React.FC = () => {
   return (
     <div className="signup-screen glass-effect">
       <div className="text-center mb-6">
-        <h1 className="gradient-text">Create Account</h1>
-        <p className="text-secondary">Join us and start your journey</p>
+        <h1 className="gradient-text">¡Dale, sumate!</h1>
+        <p className="text-secondary">Creá tu cuenta y empezá la aventura</p>
       </div>
       
       <form onSubmit={onSubmit} className="space-y-4">
         <FormField
           name="name"
           type="text"
-          label="Full Name"
-          placeholder="Enter your full name"
+          label="Nombre completo"
+          placeholder="Cómo te llamás vos"
           icon="👤"
           error={errors.name}
           register={register}
@@ -33,8 +33,8 @@ const SignupScreen: React.FC = () => {
         <FormField
           name="email"
           type="email"
-          label="Email Address"
-          placeholder="Enter your email"
+          label="Email"
+          placeholder="Tu email, dale"
           icon="📧"
           error={errors.email}
           register={register}
@@ -43,8 +43,8 @@ const SignupScreen: React.FC = () => {
         <FormField
           name="password"
           type="password"
-          label="Password"
-          placeholder="Create a strong password"
+          label="Contraseña"
+          placeholder="Una contraseña copada, eh"
           icon="🔒"
           error={errors.password}
           register={register}
@@ -55,13 +55,13 @@ const SignupScreen: React.FC = () => {
           disabled={isLoading || isSubmitting}
           size="lg"
         >
-          {isLoading || isSubmitting ? 'Creating Account...' : 'Create Account'}
+          {isLoading || isSubmitting ? 'Creando cuenta...' : 'Crear cuenta'}
         </Button>
       </form>
       
       <div className="form-links">
         <p>
-          Already have an account? <Link to="/login">Sign in here</Link>
+          ¿Ya tenés cuenta? <Link to="/login">Entrá acá</Link>
         </p>
       </div>
     </div>

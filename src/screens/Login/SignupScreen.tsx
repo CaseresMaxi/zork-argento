@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { SignupCredentials } from '../../types';
+import type { SignupCredentials } from '../../types';
 import { useAuth } from '../../hooks';
 import { Input, Button } from '../../components';
 
@@ -10,14 +10,18 @@ const SignupScreen: React.FC = () => {
     password: '',
     name: ''
   });
+  const [error, setError] = useState<string>('');
   const { signup, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     const result = await signup(credentials);
     if (result.success) {
       navigate('/home');
+    } else {
+      setError(result.error || 'Signup failed');
     }
   };
 
@@ -30,24 +34,37 @@ const SignupScreen: React.FC = () => {
   };
 
   return (
-    <div className="signup-screen">
-      <h1>Sign Up</h1>
-      <form onSubmit={handleSubmit}>
+    <div className="signup-screen glass-effect">
+      <div className="text-center mb-6">
+        <h1 className="gradient-text">Create Account</h1>
+        <p className="text-secondary">Join us and start your journey</p>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
         <Input
           type="text"
           name="name"
           value={credentials.name}
           onChange={handleChange}
-          label="Name"
+          label="Full Name"
+          placeholder="Enter your full name"
           required
+          icon="👤"
         />
         <Input
           type="email"
           name="email"
           value={credentials.email}
           onChange={handleChange}
-          label="Email"
+          label="Email Address"
+          placeholder="Enter your email"
           required
+          icon="📧"
         />
         <Input
           type="password"
@@ -55,15 +72,24 @@ const SignupScreen: React.FC = () => {
           value={credentials.password}
           onChange={handleChange}
           label="Password"
+          placeholder="Create a strong password"
           required
+          icon="🔒"
         />
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Signing up...' : 'Sign Up'}
+        <Button 
+          type="submit" 
+          disabled={isLoading}
+          size="lg"
+        >
+          {isLoading ? 'Creating Account...' : 'Create Account'}
         </Button>
       </form>
-      <p>
-        Already have an account? <Link to="/login">Login</Link>
-      </p>
+      
+      <div className="form-links">
+        <p>
+          Already have an account? <Link to="/login">Sign in here</Link>
+        </p>
+      </div>
     </div>
   );
 };

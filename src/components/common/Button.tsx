@@ -7,6 +7,8 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
+  fullWidth?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -15,7 +17,9 @@ const Button: React.FC<ButtonProps> = ({
   type = 'button',
   variant = 'primary',
   disabled = false,
-  className = ''
+  className = '',
+  size = 'md',
+  fullWidth = true
 }) => {
   const baseClasses = 'btn';
   const variantClasses = {
@@ -23,15 +27,27 @@ const Button: React.FC<ButtonProps> = ({
     secondary: 'btn-secondary',
     danger: 'btn-danger'
   };
+  
+  const sizeClasses = {
+    sm: 'btn-sm',
+    md: 'btn-md',
+    lg: 'btn-lg'
+  };
+
+  const widthClass = fullWidth ? 'w-full' : '';
 
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${className}`}
     >
-      {children}
+      {disabled && variant === 'primary' ? (
+        <span className="loading"></span>
+      ) : (
+        children
+      )}
     </button>
   );
 };

@@ -1,0 +1,20 @@
+# Firebase Configuration Example
+# Create a .env.local file in your project root with these variables:
+
+VITE_FIREBASE_API_KEY=AIzaSyC...your_actual_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=zork-argento-12345.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=zork-argento-12345
+VITE_FIREBASE_STORAGE_BUCKET=zork-argento-12345.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
+VITE_FIREBASE_APP_ID=1:123456789012:web:abcdef1234567890
+
+# Instructions:
+# 1. Go to Firebase Console (https://console.firebase.google.com/)
+# 2. Create a new project or select existing one
+# 3. Go to Project Settings (gear icon)
+# 4. Scroll down to "Your apps" section
+# 5. Click on the web icon (</>) to add a web app
+# 6. Copy the config values from the Firebase console
+# 7. Replace the values above with your actual Firebase config
+# 8. Save this as .env.local in your project root
+# 9. Make sure .env.local is in your .gitignore file

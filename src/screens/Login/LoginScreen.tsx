@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LoginCredentials } from '../../types';
+import type { LoginCredentials } from '../../types';
 import { useAuth } from '../../hooks';
 import { Input, Button } from '../../components';
 
@@ -9,14 +9,18 @@ const LoginScreen: React.FC = () => {
     email: '',
     password: ''
   });
+  const [error, setError] = useState<string>('');
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     const result = await login(credentials);
     if (result.success) {
       navigate('/home');
+    } else {
+      setError(result.error || 'Login failed');
     }
   };
 
@@ -29,16 +33,27 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="login-screen">
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit}>
+    <div className="login-screen glass-effect">
+      <div className="text-center mb-6">
+        <h1 className="gradient-text">Welcome Back</h1>
+        <p className="text-secondary">Sign in to your account</p>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
         <Input
           type="email"
           name="email"
           value={credentials.email}
           onChange={handleChange}
-          label="Email"
+          label="Email Address"
+          placeholder="Enter your email"
           required
+          icon="📧"
         />
         <Input
           type="password"
@@ -46,15 +61,24 @@ const LoginScreen: React.FC = () => {
           value={credentials.password}
           onChange={handleChange}
           label="Password"
+          placeholder="Enter your password"
           required
+          icon="🔒"
         />
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Logging in...' : 'Login'}
+        <Button 
+          type="submit" 
+          disabled={isLoading}
+          size="lg"
+        >
+          {isLoading ? 'Signing In...' : 'Sign In'}
         </Button>
       </form>
-      <p>
-        Don't have an account? <Link to="/signup">Sign up</Link>
-      </p>
+      
+      <div className="form-links">
+        <p>
+          Don't have an account? <Link to="/signup">Create one here</Link>
+        </p>
+      </div>
     </div>
   );
 };

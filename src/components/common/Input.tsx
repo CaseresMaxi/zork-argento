@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 
 interface InputProps {
   type?: 'text' | 'email' | 'password' | 'number';
-  name: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   label?: string;
   required?: boolean;
@@ -14,7 +14,7 @@ interface InputProps {
   icon?: React.ReactNode;
 }
 
-const Input: React.FC<InputProps> = ({
+const Input = forwardRef<HTMLInputElement, InputProps>(({
   type = 'text',
   name,
   value,
@@ -25,8 +25,9 @@ const Input: React.FC<InputProps> = ({
   disabled = false,
   className = '',
   error,
-  icon
-}) => {
+  icon,
+  ...props
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -54,6 +55,7 @@ const Input: React.FC<InputProps> = ({
           </div>
         )}
         <input
+          ref={ref}
           type={inputType}
           id={name}
           name={name}
@@ -65,6 +67,7 @@ const Input: React.FC<InputProps> = ({
           required={required}
           disabled={disabled}
           className={`input ${icon ? 'pl-10' : ''} ${type === 'password' ? 'pr-10' : ''} ${error ? 'border-red-400 focus:border-red-400' : ''} ${className}`}
+          {...props}
         />
         {type === 'password' && (
           <button
@@ -84,6 +87,8 @@ const Input: React.FC<InputProps> = ({
       )}
     </div>
   );
-};
+});
+
+Input.displayName = 'Input';
 
 export default Input;

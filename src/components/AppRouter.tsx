@@ -4,11 +4,8 @@ import { LoginScreen, SignupScreen, HomeScreen } from '../screens';
 import { useAuth } from '../hooks';
 
 const AppRouter: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <Router>

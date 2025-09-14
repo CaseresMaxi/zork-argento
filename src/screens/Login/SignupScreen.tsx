@@ -1,37 +1,16 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import type { SignupCredentials } from '../../types';
-import { useAuth } from '../../hooks';
-import { Input, Button } from '../../components';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useSignupForm } from '../../hooks';
+import { FormField, Button } from '../../components';
 
 const SignupScreen: React.FC = () => {
-  const [credentials, setCredentials] = useState<SignupCredentials>({
-    email: '',
-    password: '',
-    name: ''
-  });
-  const [error, setError] = useState<string>('');
-  const { signup, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const result = await signup(credentials);
-    if (result.success) {
-      navigate('/home');
-    } else {
-      setError(result.error || 'Signup failed');
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCredentials(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  const {
+    register,
+    onSubmit,
+    formState: { errors },
+    isLoading,
+    isSubmitting
+  } = useSignupForm();
 
   return (
     <div className="signup-screen glass-effect">
@@ -40,48 +19,43 @@ const SignupScreen: React.FC = () => {
         <p className="text-secondary">Join us and start your journey</p>
       </div>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-        <Input
-          type="text"
+      <form onSubmit={onSubmit} className="space-y-4">
+        <FormField
           name="name"
-          value={credentials.name}
-          onChange={handleChange}
+          type="text"
           label="Full Name"
           placeholder="Enter your full name"
-          required
           icon="👤"
+          error={errors.name}
+          register={register}
+          required
         />
-        <Input
-          type="email"
+        <FormField
           name="email"
-          value={credentials.email}
-          onChange={handleChange}
+          type="email"
           label="Email Address"
           placeholder="Enter your email"
-          required
           icon="📧"
+          error={errors.email}
+          register={register}
+          required
         />
-        <Input
-          type="password"
+        <FormField
           name="password"
-          value={credentials.password}
-          onChange={handleChange}
+          type="password"
           label="Password"
           placeholder="Create a strong password"
-          required
           icon="🔒"
+          error={errors.password}
+          register={register}
+          required
         />
         <Button 
           type="submit" 
-          disabled={isLoading}
+          disabled={isLoading || isSubmitting}
           size="lg"
         >
-          {isLoading ? 'Creating Account...' : 'Create Account'}
+          {isLoading || isSubmitting ? 'Creating Account...' : 'Create Account'}
         </Button>
       </form>
       

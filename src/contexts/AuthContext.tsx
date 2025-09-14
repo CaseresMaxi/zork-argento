@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  User as FirebaseUser,
+  type User as FirebaseUser,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { User, AuthState, LoginCredentials, SignupCredentials, AuthResult } from '../types';
+import type { User, AuthState, LoginCredentials, SignupCredentials, AuthResult } from '../types';
+import { ValidationError } from 'yup';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<AuthResult>;
@@ -59,17 +60,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  const createValidationError = (field: string, message: string): ValidationError => {
+    const error = new ValidationError(message);
+    error.path = field;
+    return error;
+  };
+
   const login = async (credentials: LoginCredentials): Promise<AuthResult> => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
-      return { 
-        success: false, 
-        error: error.message || 'Login failed' 
-      };
+      
+      const validationError = createValidationError('password', 'Credenciales incorrectas. Verifica tu email y contraseña');
+      
+      throw validationError;
     }
   };
 
@@ -80,10 +87,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
-      return { 
-        success: false, 
-        error: error.message || 'Signup failed' 
-      };
+      
+      // Map Firebase errors to Yup validation errors
+      let validationError: ValidationError;
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          validationError = createValidationError('email', 'Ya existe una cuenta con este correo electrónico');
+          break;
+        case 'auth/invalid-email':
+          validationError = createValidationError('email', 'El correo electrónico no es válido');
+          break;
+        case 'auth/weak-password':
+          validationError = createValidationError('password', 'La contraseña es muy débil. Debe tener al menos 6 caracteres');
+          break;
+        case 'auth/operation-not-allowed':
+          validationError = createValidationError('email', 'El registro con email no está habilitado');
+          break;
+        case 'auth/network-request-failed':
+          validationError = createValidationError('email', 'Error de conexión. Verifica tu internet');
+          break;
+        default:
+          validationError = createValidationError('email', 'Error al crear la cuenta. Intenta de nuevo');
+      }
+      
+      throw validationError;
     }
   };
 

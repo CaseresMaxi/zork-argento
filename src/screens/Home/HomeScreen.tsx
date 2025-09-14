@@ -1,6 +1,34 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks';
-import { Button } from '../../components';
+import { Button, UserDropdown } from '../../components';
+
+const mockZorks = [
+  {
+    id: 1,
+    title: "El Castillo Embrujado",
+    description: "Una aventura en un castillo lleno de fantasmas y misterios"
+  },
+  {
+    id: 2,
+    title: "La Cueva del Dragón",
+    description: "Explora una cueva profunda donde vive un dragón legendario"
+  },
+  {
+    id: 3,
+    title: "El Bosque Encantado",
+    description: "Navega por un bosque mágico lleno de criaturas fantásticas"
+  },
+  {
+    id: 4,
+    title: "La Ciudad Perdida",
+    description: "Descubre los secretos de una antigua civilización"
+  },
+  {
+    id: 5,
+    title: "La Torre del Mago",
+    description: "Escala una torre mágica llena de hechizos y trampas"
+  }
+];
 
 const HomeScreen: React.FC = () => {
   const { user, logout } = useAuth();
@@ -42,13 +70,10 @@ const HomeScreen: React.FC = () => {
           <p className="text-secondary">Tu aventura te está esperando, che</p>
         </div>
         <div className="user-info">
-          <div className="user-details">
-            <span className="user-greeting">¡Hola, {user?.name}!</span>
-            <span className="user-status">Conectado</span>
-          </div>
-          <Button onClick={handleLogout} variant="secondary" size="sm" fullWidth={false}>
-            Salir
-          </Button>
+          <UserDropdown 
+            userName={user?.name || 'Usuario'} 
+            onLogout={handleLogout} 
+          />
         </div>
       </header>
       
@@ -91,30 +116,12 @@ const HomeScreen: React.FC = () => {
         <div className="features">
           <h2>Mis Zorks 🧉</h2>
           <ul>
-            <li>
-              <strong>Autenticación de usuarios</strong>
-              <span>Sistema seguro de login y registro</span>
-            </li>
-            <li>
-              <strong>Componentes modernos</strong>
-              <span>Diseño hermoso y responsivo</span>
-            </li>
-            <li>
-              <strong>Soporte TypeScript</strong>
-              <span>Desarrollo con tipos seguros</span>
-            </li>
-            <li>
-              <strong>Navegación con React Router</strong>
-              <span>Transiciones suaves entre páginas</span>
-            </li>
-            <li>
-              <strong>Tema oscuro</strong>
-              <span>Fácil para los ojos, estética moderna</span>
-            </li>
-            <li>
-              <strong>Diseño responsivo</strong>
-              <span>Funciona perfecto en todos los dispositivos</span>
-            </li>
+            {mockZorks.map((zork) => (
+              <li key={zork.id}>
+                <strong>{zork.title}</strong>
+                <span>{zork.description}</span>
+              </li>
+            ))}
           </ul>
         </div>
       </main>

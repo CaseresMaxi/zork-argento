@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
 
@@ -32,6 +33,7 @@ const mockZorks = [
 
 const HomeScreen: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -114,10 +116,13 @@ const HomeScreen: React.FC = () => {
         </div>
         
         <div className="features">
-          <h2>Mis Zorks 🧉</h2>
+          <div >
+            <h2>Mis Zorks 🧉</h2>
+            
+          </div>
           <ul>
             {mockZorks.map((zork) => (
-              <li key={zork.id}>
+              <li key={zork.id} onClick={() => navigate('/chat')} style={{ cursor: 'pointer' }}>
                 <strong>{zork.title}</strong>
                 <span>{zork.description}</span>
               </li>

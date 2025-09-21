@@ -30,3 +30,48 @@ export interface AuthResult {
   success: boolean;
   error?: string;
 }
+
+export interface AdventureStats {
+  salud: number;
+  lucidez: number;
+}
+
+export interface AdventureStateSnapshot {
+  location: string;
+  inventory: string[];
+  stats: AdventureStats;
+  flags: Record<string, string | number | boolean>;
+  objetivos: string[];
+}
+
+export interface AdventureStep {
+  stepId: number;
+  turnIndex: number;
+  timestamp: string;
+  playerInput: string | null;
+  narrative: string;
+  imagePrompt: string;
+  imageSeed?: number;
+  imageUrl?: string | null;
+  suggestedActions?: string[];
+  contextSummary?: string;
+  stateAfter: AdventureStateSnapshot;
+}
+
+export interface Adventure {
+  version: string;
+  adventureId: string;
+  title: string;
+  genre: string;
+  language: string;
+  createdAt: string;
+  updatedAt?: string;
+  userId?: string;
+  seed?: number;
+  state: AdventureStateSnapshot;
+  steps: AdventureStep[];
+}
+
+export interface AdventureDocument extends Adventure {
+  id?: string;
+}

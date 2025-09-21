@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
+import { useAdventureStore } from '../../store';
+import { buildAdventureContinuationPrompt, sendChatMessage } from '../../utils';
 
 interface Message {
   id: string;
@@ -13,14 +15,14 @@ interface Message {
 const ChatScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: '¡Bienvenido a Zork Argento! Estás parado en un campo abierto al oeste de una casa blanca, con una puerta principal cerrada. Hay un pequeño buzón aquí. ¿Qué querés hacer?',
-      isUser: false,
-      timestamp: new Date()
-    }
-  ]);
+  const { 
+    currentAdventure, 
+    currentAdventureId, 
+    initializeWithMock, 
+    appendStep, 
+    saveAdventure, 
+    saveCurrentStep 
+  } = useAdventureStore();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,34 +33,90 @@ const ChatScreen: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!currentAdventure) initializeWithMock();
+  }, [currentAdventure, initializeWithMock]);
+
+  useEffect(() => {
+    if (currentAdventure && !currentAdventureId && user?.id) {
+      saveAdventure(user.id);
+    }
+  }, [currentAdventure, currentAdventureId, user?.id, saveAdventure]);
+
+  useEffect(() => {
+    if (currentAdventureId && currentAdventure && currentAdventure.steps.length > 1) {
+      saveCurrentStep();
+    }
+  }, [currentAdventure, currentAdventureId, saveCurrentStep]);
+
+  useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [currentAdventure?.steps]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue.trim(),
-      isUser: true,
-      timestamp: new Date()
-    };
+    const steps = currentAdventure?.steps || [];
+    const last = steps[steps.length - 1];
+    const nextStepId = last ? last.stepId + 1 : 0;
+    const nextTurnIndex = last ? last.turnIndex + 1 : 0;
+    const playerText = inputValue.trim();
+    const narrativeText = generateGameResponse(playerText);
+    const timestamp = new Date().toISOString();
 
-    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate game response
-    setTimeout(() => {
-      const gameResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: generateGameResponse(userMessage.content),
-        isUser: false,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, gameResponse]);
+    try {
+      const adventureContext = JSON.stringify(currentAdventure);
+      const prompt = buildAdventureContinuationPrompt(adventureContext, playerText, nextStepId, nextTurnIndex);
+      const result = await sendChatMessage(prompt);
+
+      if (result.success) {
+        try {
+          const step = JSON.parse(result.message);
+          appendStep(step);
+        } catch (e) {
+          console.error('Invalid step JSON from API:', e);
+          appendStep({
+            stepId: nextStepId,
+            turnIndex: nextTurnIndex,
+            timestamp,
+            playerInput: playerText,
+            narrative: narrativeText,
+            imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+            imageUrl: null,
+            stateAfter: currentAdventure ? currentAdventure.state : {
+              location: 'Lugar desconocido',
+              inventory: [],
+              stats: { salud: 100, lucidez: 5 },
+              flags: {},
+              objetivos: []
+            }
+          });
+        }
+      } else {
+        appendStep({
+          stepId: nextStepId,
+          turnIndex: nextTurnIndex,
+          timestamp,
+          playerInput: playerText,
+          narrative: narrativeText,
+          imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+          imageUrl: null,
+          stateAfter: currentAdventure ? currentAdventure.state : {
+            location: 'Lugar desconocido',
+            inventory: [],
+            stats: { salud: 100, lucidez: 5 },
+            flags: {},
+            objetivos: []
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error sending continuation:', err);
+    } finally {
       setIsLoading(false);
-    }, 1000 + Math.random() * 1500);
+    }
   };
 
   const generateGameResponse = (userInput: string): string => {
@@ -153,7 +211,24 @@ const ChatScreen: React.FC = () => {
       <main className="chat-main">
         <div className="chat-container-full">
           <div className="messages-container">
-            {messages.map((message) => (
+            {(currentAdventure?.steps || []).flatMap((step) => {
+              const list: Message[] = [];
+              if (step.playerInput) {
+                list.push({
+                  id: `u-${step.stepId}`,
+                  content: step.playerInput,
+                  isUser: true,
+                  timestamp: new Date(step.timestamp)
+                });
+              }
+              list.push({
+                id: `a-${step.stepId}`,
+                content: step.narrative,
+                isUser: false,
+                timestamp: new Date(step.timestamp)
+              });
+              return list;
+            }).map((message) => (
               <div
                 key={message.id}
                 className={`message-wrapper ${message.isUser ? 'user-message-wrapper' : 'assistant-message-wrapper'}`}

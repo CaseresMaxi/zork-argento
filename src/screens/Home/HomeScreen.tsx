@@ -1,41 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
-import { Button, UserDropdown } from '../../components';
+import { Button, UserDropdown, AdventureList } from '../../components';
+import { sendChatMessage, buildAdventureGenerationPrompt } from '../../utils';
+import { useAdventureStore } from '../../store';
 
-const mockZorks = [
-  {
-    id: 1,
-    title: "El Castillo Embrujado",
-    description: "Una aventura en un castillo lleno de fantasmas y misterios"
-  },
-  {
-    id: 2,
-    title: "La Cueva del Dragón",
-    description: "Explora una cueva profunda donde vive un dragón legendario"
-  },
-  {
-    id: 3,
-    title: "El Bosque Encantado",
-    description: "Navega por un bosque mágico lleno de criaturas fantásticas"
-  },
-  {
-    id: 4,
-    title: "La Ciudad Perdida",
-    description: "Descubre los secretos de una antigua civilización"
-  },
-  {
-    id: 5,
-    title: "La Torre del Mago",
-    description: "Escala una torre mágica llena de hechizos y trampas"
-  }
-];
+// listado mock removido
 
 const HomeScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [response, setResponse] = useState<string>('');
+  const { initializeAdventure } = useAdventureStore();
 
   const handleLogout = () => {
     logout();
@@ -45,13 +23,27 @@ const HomeScreen: React.FC = () => {
     if (!prompt.trim()) return;
     
     setIsGenerating(true);
+    setResponse('');
+    
     try {
-      // TODO: Implement adventure generation logic
-      console.log('Generating adventure with prompt:', prompt);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const seed = Math.floor(Math.random() * 1000000);
+      const adventurePrompt = buildAdventureGenerationPrompt(prompt, seed);
+      const result = await sendChatMessage(adventurePrompt);
+      
+      if (result.success) {
+        setResponse(result.message);
+        try {
+          const parsed = JSON.parse(result.message);
+          initializeAdventure(parsed);
+        } catch (e) {
+          console.error('Invalid adventure JSON from API:', e);
+        }
+      } else {
+        setResponse('Error al generar la aventura. Intentá de nuevo.');
+      }
     } catch (error) {
       console.error('Error generating adventure:', error);
+      setResponse('Error al conectar con el servidor. Intentá de nuevo.');
     } finally {
       setIsGenerating(false);
     }
@@ -88,7 +80,44 @@ const HomeScreen: React.FC = () => {
           </div>
           
           <div className="chat-container">
-           
+            {response && (
+              <div className="response-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+                <div className="response-header">
+                  <h3>Tu aventura generada:</h3>
+                </div>
+                <div className="response-content">
+                  <p>{response}</p>
+                </div>
+                <div className="response-actions" style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+                  <Button
+                    onClick={() => navigate('/chat')}
+                    variant="primary"
+                    className="start-adventure-button"
+                  >
+                    ¡Empezar aventura!
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setResponse('');
+                      setPrompt('');
+                    }}
+                    variant="secondary"
+                    className="new-adventure-button"
+                  >
+                    Crear otra aventura
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {isGenerating && (
+              <div className="loading-container">
+                <div className="loading-content">
+                  <div className="loading-spinner"></div>
+                  <p>Generando tu aventura...</p>
+                </div>
+              </div>
+            )}
             
             <div className="chat-input-container">
               <div className="chat-input-wrapper">
@@ -102,13 +131,12 @@ const HomeScreen: React.FC = () => {
                   disabled={isGenerating}
                 />
                 <Button
-                
                   onClick={handleGenerateAdventure}
-                  disabled={(!prompt.trim() || isGenerating) && false}
+                  disabled={isGenerating}
                   className="send-button"
                   variant="primary"
                 >
-                ¡Dale, creá el Zork!
+                  {isGenerating ? 'Generando...' : '¡Dale, creá el Zork!'}
                 </Button>
               </div>
             </div>
@@ -116,18 +144,10 @@ const HomeScreen: React.FC = () => {
         </div>
         
         <div className="features">
-          <div >
+          <div>
             <h2>Mis Zorks 🧉</h2>
-            
           </div>
-          <ul>
-            {mockZorks.map((zork) => (
-              <li key={zork.id} onClick={() => navigate('/chat')} style={{ cursor: 'pointer' }}>
-                <strong>{zork.title}</strong>
-                <span>{zork.description}</span>
-              </li>
-            ))}
-          </ul>
+          <AdventureList onSelectAdventure={() => navigate('/chat')} />
         </div>
       </main>
     </div>

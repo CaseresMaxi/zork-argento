@@ -10,7 +10,7 @@ import {
   where,
   orderBy,
   limit,
-  Timestamp
+  // Timestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Adventure, AdventureDocument } from '../types';

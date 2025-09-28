@@ -32,9 +32,17 @@ const HomeScreen: React.FC = () => {
       
       if (result.success) {
         setResponse(result.message);
+        const maybePayload = result.payload;
+        const maybeString = result.message;
         try {
-          const parsed = JSON.parse(result.message);
-          initializeAdventure(parsed);
+          if (maybePayload && typeof maybePayload === 'object') {
+            initializeAdventure(maybePayload);
+          } else if (typeof maybeString === 'string') {
+            const parsed = JSON.parse(maybeString);
+            initializeAdventure(parsed);
+          } else {
+            throw new Error('Unsupported response format');
+          }
         } catch (e) {
           console.error('Invalid adventure JSON from API:', e);
         }

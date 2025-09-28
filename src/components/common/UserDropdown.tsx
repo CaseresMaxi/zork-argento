@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from './Button';
 
 interface UserDropdownProps {
   userName: string;

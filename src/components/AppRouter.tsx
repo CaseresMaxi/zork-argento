@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginScreen, SignupScreen, HomeScreen, ChatScreen } from '../screens';
+import { ForgotPasswordScreen } from '../screens';
 import { useAuth } from '../hooks';
 
 const AppRouter: React.FC = () => {
@@ -17,6 +18,10 @@ const AppRouter: React.FC = () => {
         <Route 
           path="/signup" 
           element={!isAuthenticated ? <SignupScreen /> : <Navigate to="/home" replace />} 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={!isAuthenticated ? <ForgotPasswordScreen /> : <Navigate to="/home" replace />} 
         />
         <Route 
           path="/home" 

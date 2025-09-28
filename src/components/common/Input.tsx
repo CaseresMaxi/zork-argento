@@ -28,7 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   icon,
   ...props
 }, ref) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const [, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleFocus = () => setIsFocused(true);

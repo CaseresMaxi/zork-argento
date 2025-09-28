@@ -1,11 +1,12 @@
 interface ChatResponse {
   message: string;
   success: boolean;
+  payload?: any;
 }
 
-interface ChatRequest {
-  message: string;
-}
+// interface ChatRequest {
+//   message: string;
+// }
 
 export const buildAdventureGenerationPrompt = (userDescription: string, seed?: number): string => {
   const finalSeed = typeof seed === 'number' ? seed : Math.floor(Math.random() * 1000000);
@@ -82,11 +83,13 @@ export const sendChatMessage = async (message: string): Promise<ChatResponse> =>
     // eslint-disable-next-line no-console
     console.log('API response:', data);
     const nestedMessage = (data && typeof data === 'object' && 'data' in data) ? (data.data?.message ?? data.data?.response) : undefined;
-    const finalMessage = nestedMessage ?? data.message ?? data.response ?? 'No response received';
+    const finalMessageValue = nestedMessage ?? data.message ?? data.response ?? 'No response received';
+    const finalMessage = typeof finalMessageValue === 'string' ? finalMessageValue : JSON.stringify(finalMessageValue);
     
     return {
       message: finalMessage,
       success: true,
+      payload: nestedMessage,
     };
   } catch (error) {
     console.error('Error calling chat API:', error);

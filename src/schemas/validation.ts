@@ -31,3 +31,10 @@ export const signupSchema = yup.object({
 
 export type LoginFormData = yup.InferType<typeof loginSchema>;
 export type SignupFormData = yup.InferType<typeof signupSchema>;
+export const resetPasswordSchema = yup.object({
+  email: yup
+    .string()
+    .required('Che, poné tu email')
+    .email('Ese email no parece válido, dale')
+});
+export type ResetPasswordFormData = yup.InferType<typeof resetPasswordSchema>;

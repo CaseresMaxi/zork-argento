@@ -1,4 +1,4 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 export interface User {
   id: string;
@@ -7,7 +7,7 @@ export interface User {
   photoURL?: string;
 }
 
-export interface FirebaseAuthUser extends FirebaseUser {}
+export type FirebaseAuthUser = FirebaseUser
 
 export interface LoginCredentials {
   email: string;

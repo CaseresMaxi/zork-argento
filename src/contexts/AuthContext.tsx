@@ -4,7 +4,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import type { User, AuthState, LoginCredentials, SignupCredentials, AuthResult } from '../types';
@@ -14,6 +17,8 @@ interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<AuthResult>;
   signup: (credentials: SignupCredentials) => Promise<AuthResult>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<AuthResult>;
+  loginWithGoogle: () => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -123,11 +128,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string): Promise<AuthResult> => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      await sendPasswordResetEmail(auth, email);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: true };
+    } catch (error: unknown) {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+
+      let validationError: ValidationError;
+      switch ((error as { code?: string }).code) {
+        case 'auth/invalid-email':
+          validationError = createValidationError('email', 'Ese email no parece válido, eh');
+          break;
+        case 'auth/user-not-found':
+          validationError = createValidationError('email', 'Si existe, te mandamos un correo para resetear');
+          break;
+        case 'auth/too-many-requests':
+          validationError = createValidationError('email', 'Demasiados intentos. Probá más tarde');
+          break;
+        case 'auth/network-request-failed':
+          validationError = createValidationError('email', 'Error de conexión. Fijate tu internet, che');
+          break;
+        default:
+          validationError = createValidationError('email', 'No pudimos enviar el correo. Probá de nuevo');
+      }
+      throw validationError;
+    }
+  };
+
   const value: AuthContextType = {
     ...authState,
     login,
     signup,
-    logout
+    logout,
+    resetPassword,
+    loginWithGoogle: async (): Promise<AuthResult> => {
+      try {
+        setAuthState(prev => ({ ...prev, isLoading: true }));
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return { success: true };
+      } catch (error: unknown) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        let validationError: ValidationError;
+        switch ((error as { code?: string }).code) {
+          case 'auth/popup-blocked':
+            validationError = createValidationError('email', 'El popup fue bloqueado. Permitilo y probá de nuevo');
+            break;
+          case 'auth/popup-closed-by-user':
+            validationError = createValidationError('email', 'Cerraste el popup. Intentá de nuevo');
+            break;
+          case 'auth/cancelled-popup-request':
+            validationError = createValidationError('email', 'Se canceló el popup. Probá otra vez');
+            break;
+          case 'auth/network-request-failed':
+            validationError = createValidationError('email', 'Error de conexión. Fijate tu internet, che');
+            break;
+          default:
+            validationError = createValidationError('email', 'No pudimos iniciar con Google. Probá de nuevo');
+        }
+        throw validationError;
+      }
+    }
   };
 
   return (

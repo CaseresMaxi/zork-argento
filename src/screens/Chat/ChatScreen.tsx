@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
 import { useAdventureStore } from '../../store';
-import { buildAdventureContinuationPrompt, sendChatMessage } from '../../utils';
+import { sendChatMessage } from '../../utils';
 
 interface Message {
   id: string;
@@ -21,12 +21,21 @@ const ChatScreen: React.FC = () => {
     initializeWithMock, 
     appendStep, 
     saveAdventure, 
-    saveCurrentStep 
+    saveCurrentStep,
+    conversationId,
+    setConversationId,
+    threadId,
+    setThreadId 
   } = useAdventureStore();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const toValidDate = (value: unknown): Date => {
+    const candidate = value ? new Date(value as any) : new Date();
+    return isNaN(candidate.getTime()) ? new Date() : candidate;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,14 +76,66 @@ const ChatScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const adventureContext = JSON.stringify(currentAdventure);
-      const prompt = buildAdventureContinuationPrompt(adventureContext, playerText, nextStepId, nextTurnIndex);
-      const result = await sendChatMessage(prompt);
+      const result = await sendChatMessage(
+        playerText,
+        conversationId || undefined,
+        { stepId: nextStepId, turnIndex: nextTurnIndex },
+        threadId || undefined
+      );
 
       if (result.success) {
         try {
-          const step = JSON.parse(result.message);
-          appendStep(step);
+          const raw = result.payload ?? (typeof result.message === 'string' ? JSON.parse(result.message) : result.message);
+          let stepToAppend: any = null;
+          if (raw && typeof raw === 'object') {
+            if (Array.isArray((raw as any).steps)) {
+              const arr = (raw as any).steps as any[];
+              stepToAppend = arr[arr.length - 1] ?? null;
+            } else if ('stepId' in (raw as any) || 'narrative' in (raw as any)) {
+              stepToAppend = raw;
+            }
+          }
+
+          if (stepToAppend) {
+            const safeStep = {
+              stepId: typeof stepToAppend.stepId === 'number' ? stepToAppend.stepId : nextStepId,
+              turnIndex: typeof stepToAppend.turnIndex === 'number' ? stepToAppend.turnIndex : nextTurnIndex,
+              timestamp: typeof stepToAppend.timestamp === 'string' ? stepToAppend.timestamp : timestamp,
+              playerInput: typeof stepToAppend.playerInput === 'string' ? stepToAppend.playerInput : playerText,
+              narrative: typeof stepToAppend.narrative === 'string' ? stepToAppend.narrative : narrativeText,
+              imagePrompt: stepToAppend.imagePrompt ?? 'placeholder fantasy illustration, cinematic, high detail',
+              imageUrl: stepToAppend.imageUrl ?? null,
+              suggestedActions: Array.isArray(stepToAppend.suggestedActions) ? stepToAppend.suggestedActions : undefined,
+              contextSummary: typeof stepToAppend.contextSummary === 'string' ? stepToAppend.contextSummary : undefined,
+              stateAfter: stepToAppend.stateAfter ?? (currentAdventure ? currentAdventure.state : {
+                location: 'Lugar desconocido',
+                inventory: [],
+                stats: { salud: 100, lucidez: 5 },
+                flags: {},
+                objetivos: []
+              })
+            };
+            appendStep(safeStep);
+            if (result.conversationId) setConversationId(result.conversationId);
+            if (result.threadId) setThreadId(result.threadId);
+          } else {
+            appendStep({
+              stepId: nextStepId,
+              turnIndex: nextTurnIndex,
+              timestamp,
+              playerInput: playerText,
+              narrative: narrativeText,
+              imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+              imageUrl: null,
+              stateAfter: currentAdventure ? currentAdventure.state : {
+                location: 'Lugar desconocido',
+                inventory: [],
+                stats: { salud: 100, lucidez: 5 },
+                flags: {},
+                objetivos: []
+              }
+            });
+          }
         } catch (e) {
           console.error('Invalid step JSON from API:', e);
           appendStep({
@@ -168,6 +229,8 @@ const ChatScreen: React.FC = () => {
   };
 
   const handleGoBack = () => {
+    setConversationId(null);
+    setThreadId(null);
     navigate('/home');
   };
 
@@ -211,21 +274,24 @@ const ChatScreen: React.FC = () => {
       <main className="chat-main">
         <div className="chat-container-full">
           <div className="messages-container">
-            {(currentAdventure?.steps || []).flatMap((step) => {
+            {(currentAdventure?.steps || [])
+              .slice()
+              .sort((a, b) => (a.stepId ?? 0) - (b.stepId ?? 0))
+              .flatMap((step, idx) => {
               const list: Message[] = [];
               if (step.playerInput) {
                 list.push({
-                  id: `u-${step.stepId}`,
+                  id: `u-${typeof step.stepId === 'number' ? step.stepId : idx}-${typeof step.turnIndex === 'number' ? step.turnIndex : 't'}`,
                   content: step.playerInput,
                   isUser: true,
-                  timestamp: new Date(step.timestamp)
+                  timestamp: toValidDate(step.timestamp)
                 });
               }
               list.push({
-                id: `a-${step.stepId}`,
+                id: `a-${typeof step.stepId === 'number' ? step.stepId : idx}-${typeof step.turnIndex === 'number' ? step.turnIndex : 't'}`,
                 content: step.narrative,
                 isUser: false,
-                timestamp: new Date(step.timestamp)
+                timestamp: toValidDate(step.timestamp)
               });
               return list;
             }).map((message) => (

@@ -6,6 +6,8 @@ interface AdventureStore {
   currentAdventure: Adventure | null;
   currentAdventureId: string | null;
   currentUserId: string | null;
+  conversationId: string | null;
+  threadId: string | null;
   isLoading: boolean;
   error: string | null;
   isSavingAdventure: boolean;
@@ -19,6 +21,8 @@ interface AdventureStore {
   loadAdventure: (adventureId: string, userId: string) => Promise<void>;
   saveCurrentStep: () => Promise<void>;
   getUserAdventures: (userId: string) => Promise<AdventureDocument[]>;
+  setConversationId: (id: string | null) => void;
+  setThreadId: (id: string | null) => void;
 }
 
 const buildInitialStateSnapshot = (): AdventureStateSnapshot => ({
@@ -63,13 +67,15 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
   currentAdventure: null,
   currentAdventureId: null,
   currentUserId: null,
+  conversationId: null,
+  threadId: null,
   isLoading: false,
   error: null,
   isSavingAdventure: false,
   isSavingStep: false,
   initializeWithMock: () => {
     const mock = buildMockAdventure();
-    set({ currentAdventure: mock, currentAdventureId: null, currentUserId: null, isLoading: false, error: null });
+    set({ currentAdventure: mock, currentAdventureId: null, currentUserId: null, conversationId: null, isLoading: false, error: null });
   },
   initializeAdventure: (adventure) => {
     set({ currentAdventure: adventure, currentAdventureId: null, currentUserId: null, isLoading: false, error: null });
@@ -78,11 +84,11 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     const state = get().currentAdventure;
     if (!state) return;
     const steps = [...state.steps, step];
-    const updatedAdventure = { ...state, steps };
+    const updatedAdventure = { ...state, steps, state: step.stateAfter };
     set({ currentAdventure: updatedAdventure });
   },
   resetAdventure: () => {
-    set({ currentAdventure: null, currentAdventureId: null, currentUserId: null, isLoading: false, error: null });
+    set({ currentAdventure: null, currentAdventureId: null, currentUserId: null, conversationId: null, threadId: null, isLoading: false, error: null });
   },
   setImageUrlForStep: (stepId, url) => {
     const state = get().currentAdventure;
@@ -144,7 +150,9 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
       set({ error: error instanceof Error ? error.message : 'Failed to get adventures', isLoading: false });
       return [];
     }
-  }
+  },
+  setConversationId: (id) => set({ conversationId: id }),
+  setThreadId: (id) => set({ threadId: id })
 }));
 
 

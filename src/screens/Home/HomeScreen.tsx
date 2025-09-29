@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown, AdventureList } from '../../components';
-import { sendChatMessage, buildAdventureGenerationPrompt } from '../../utils';
+import { sendChatMessage } from '../../utils';
 import { useAdventureStore } from '../../store';
 
 // listado mock removido
@@ -13,7 +13,7 @@ const HomeScreen: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [response, setResponse] = useState<string>('');
-  const { initializeAdventure } = useAdventureStore();
+  const { initializeAdventure, setConversationId, setThreadId } = useAdventureStore();
 
   const handleLogout = () => {
     logout();
@@ -26,9 +26,13 @@ const HomeScreen: React.FC = () => {
     setResponse('');
     
     try {
-      const seed = Math.floor(Math.random() * 1000000);
-      const adventurePrompt = buildAdventureGenerationPrompt(prompt, seed);
-      const result = await sendChatMessage(adventurePrompt);
+      const convId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? (crypto as any).randomUUID()
+          : `conv_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      setConversationId(convId);
+
+      const result = await sendChatMessage(`crear nuevo juego: ${prompt}`, convId);
       
       if (result.success) {
         setResponse(result.message);
@@ -46,6 +50,9 @@ const HomeScreen: React.FC = () => {
         } catch (e) {
           console.error('Invalid adventure JSON from API:', e);
         }
+
+        if (result.conversationId) setConversationId(result.conversationId);
+        if (result.threadId) setThreadId(result.threadId);
       } else {
         setResponse('Error al generar la aventura. Intentá de nuevo.');
       }

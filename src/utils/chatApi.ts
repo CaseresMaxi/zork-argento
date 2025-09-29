@@ -2,6 +2,9 @@ interface ChatResponse {
   message: string;
   success: boolean;
   payload?: any;
+  conversationId?: string;
+  threadId?: string;
+  timestamp?: string;
 }
 
 // interface ChatRequest {
@@ -65,14 +68,23 @@ export const buildAdventureContinuationPrompt = (
   );
 };
 
-export const sendChatMessage = async (message: string): Promise<ChatResponse> => {
+type StepMeta = { stepId?: number; turnIndex?: number };
+
+export const sendChatMessage = async (message: string, conversationId?: string, step?: StepMeta, threadId?: string): Promise<ChatResponse> => {
   try {
     const response = await fetch('https://zork-argento-api.onrender.com/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(
+        {
+          message,
+          ...(conversationId ? { conversationId } : {}),
+          ...(threadId ? { threadId } : {}),
+          ...(step ? { step } : {}),
+        }
+      ),
     });
 
     if (!response.ok) {
@@ -82,14 +94,24 @@ export const sendChatMessage = async (message: string): Promise<ChatResponse> =>
     const data = await response.json();
     // eslint-disable-next-line no-console
     console.log('API response:', data);
-    const nestedMessage = (data && typeof data === 'object' && 'data' in data) ? (data.data?.message ?? data.data?.response) : undefined;
-    const finalMessageValue = nestedMessage ?? data.message ?? data.response ?? 'No response received';
+    const root: any = data && typeof data === 'object' ? data : {};
+    const inner: any = 'data' in root ? root.data : root;
+
+    const nestedMessage = inner?.message ?? inner?.response;
+    const finalMessageValue = nestedMessage ?? root.message ?? root.response ?? 'No response received';
     const finalMessage = typeof finalMessageValue === 'string' ? finalMessageValue : JSON.stringify(finalMessageValue);
-    
+
+    const convId = inner?.conversationId ?? root.conversationId;
+    const apiThreadId = inner?.threadId ?? root.threadId;
+    const timestamp = inner?.timestamp ?? root.timestamp;
+
     return {
       message: finalMessage,
       success: true,
       payload: nestedMessage,
+      conversationId: convId,
+      threadId: apiThreadId,
+      timestamp,
     };
   } catch (error) {
     console.error('Error calling chat API:', error);

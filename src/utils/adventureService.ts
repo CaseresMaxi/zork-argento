@@ -124,11 +124,19 @@ export class AdventureService {
     }
   }
 
-  static async saveAdventureStep(adventureId: string, adventure: Adventure, userId: string): Promise<void> {
+  static async saveAdventureStep(
+    adventureId: string, 
+    adventure: Adventure, 
+    userId: string,
+    conversationId?: string | null,
+    threadId?: string | null
+  ): Promise<void> {
     try {
       await this.updateAdventure(adventureId, {
         steps: adventure.steps,
-        state: adventure.state
+        state: adventure.state,
+        conversationId: conversationId || adventure.conversationId,
+        threadId: threadId || adventure.threadId
       }, userId);
     } catch (error) {
       console.error('Error saving adventure step:', error);

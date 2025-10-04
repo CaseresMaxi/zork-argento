@@ -51,26 +51,19 @@ const ChatScreen: React.FC = () => {
     }
   }, [currentAdventure, currentAdventureId, user?.id, saveAdventure]);
 
-  useEffect(() => {
-    if (currentAdventureId && currentAdventure && currentAdventure.steps.length > 1) {
-      saveCurrentStep();
-    }
-  }, [currentAdventure, currentAdventureId, saveCurrentStep]);
 
   useEffect(() => {
     scrollToBottom();
   }, [currentAdventure?.steps]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !currentAdventure) return;
 
-    const steps = currentAdventure?.steps || [];
-    const last = steps[steps.length - 1];
-    const nextStepId = last ? last.stepId + 1 : 0;
-    const nextTurnIndex = last ? last.turnIndex + 1 : 0;
     const playerText = inputValue.trim();
-    const narrativeText = generateGameResponse(playerText);
-    const timestamp = new Date().toISOString();
+    const steps = currentAdventure.steps || [];
+    const lastStep = steps[steps.length - 1];
+    const nextStepId = lastStep ? lastStep.stepId + 1 : 0;
+    const nextTurnIndex = lastStep ? lastStep.turnIndex + 1 : 0;
 
     setInputValue('');
     setIsLoading(true);
@@ -84,9 +77,18 @@ const ChatScreen: React.FC = () => {
       );
 
       if (result.success) {
+        if (result.conversationId && !conversationId) {
+          setConversationId(result.conversationId);
+        }
+        if (result.threadId && !threadId) {
+          setThreadId(result.threadId);
+        }
+
         try {
           const raw = result.payload ?? (typeof result.message === 'string' ? JSON.parse(result.message) : result.message);
+          
           let stepToAppend: any = null;
+          
           if (raw && typeof raw === 'object') {
             if (Array.isArray((raw as any).steps)) {
               const arr = (raw as any).steps as any[];
@@ -96,125 +98,107 @@ const ChatScreen: React.FC = () => {
             }
           }
 
-          if (stepToAppend) {
+          if (stepToAppend && stepToAppend.narrative) {
             const safeStep = {
               stepId: typeof stepToAppend.stepId === 'number' ? stepToAppend.stepId : nextStepId,
               turnIndex: typeof stepToAppend.turnIndex === 'number' ? stepToAppend.turnIndex : nextTurnIndex,
-              timestamp: typeof stepToAppend.timestamp === 'string' ? stepToAppend.timestamp : timestamp,
+              timestamp: typeof stepToAppend.timestamp === 'string' ? stepToAppend.timestamp : new Date().toISOString(),
               playerInput: typeof stepToAppend.playerInput === 'string' ? stepToAppend.playerInput : playerText,
-              narrative: typeof stepToAppend.narrative === 'string' ? stepToAppend.narrative : narrativeText,
-              imagePrompt: stepToAppend.imagePrompt ?? 'placeholder fantasy illustration, cinematic, high detail',
+              narrative: stepToAppend.narrative,
+              imagePrompt: stepToAppend.imagePrompt ?? 'fantasy illustration, cinematic, high detail',
+              imageSeed: stepToAppend.imageSeed ?? Math.floor(Math.random() * 1000000),
               imageUrl: stepToAppend.imageUrl ?? null,
-              suggestedActions: Array.isArray(stepToAppend.suggestedActions) ? stepToAppend.suggestedActions : undefined,
-              contextSummary: typeof stepToAppend.contextSummary === 'string' ? stepToAppend.contextSummary : undefined,
-              stateAfter: stepToAppend.stateAfter ?? (currentAdventure ? currentAdventure.state : {
-                location: 'Lugar desconocido',
-                inventory: [],
-                stats: { salud: 100, lucidez: 5 },
-                flags: {},
-                objetivos: []
-              })
+              suggestedActions: Array.isArray(stepToAppend.suggestedActions) ? stepToAppend.suggestedActions : [],
+              contextSummary: stepToAppend.contextSummary,
+              stateAfter: stepToAppend.stateAfter ?? currentAdventure.state
             };
+            
             appendStep(safeStep);
-            if (result.conversationId) setConversationId(result.conversationId);
-            if (result.threadId) setThreadId(result.threadId);
+            
+            if (currentAdventureId && user?.id) {
+              await saveCurrentStep();
+            }
           } else {
-            appendStep({
+            console.error('Invalid or missing narrative in step from API:', raw);
+            const errorStep = {
               stepId: nextStepId,
               turnIndex: nextTurnIndex,
-              timestamp,
+              timestamp: new Date().toISOString(),
               playerInput: playerText,
-              narrative: narrativeText,
-              imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+              narrative: 'Algo salió mal con la respuesta del servidor. Por favor, intentá de nuevo.',
+              imagePrompt: 'error illustration',
+              imageSeed: 0,
               imageUrl: null,
-              stateAfter: currentAdventure ? currentAdventure.state : {
-                location: 'Lugar desconocido',
-                inventory: [],
-                stats: { salud: 100, lucidez: 5 },
-                flags: {},
-                objetivos: []
-              }
-            });
+              suggestedActions: ['Intentar de nuevo'],
+              stateAfter: currentAdventure.state
+            };
+            appendStep(errorStep);
+            
+            if (currentAdventureId && user?.id) {
+              await saveCurrentStep();
+            }
           }
-        } catch (e) {
-          console.error('Invalid step JSON from API:', e);
-          appendStep({
+        } catch (parseError) {
+          console.error('Error parsing step JSON from API:', parseError, 'Raw response:', result.message);
+          const errorStep = {
             stepId: nextStepId,
             turnIndex: nextTurnIndex,
-            timestamp,
+            timestamp: new Date().toISOString(),
             playerInput: playerText,
-            narrative: narrativeText,
-            imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+            narrative: 'Error al procesar la respuesta. Por favor, intentá de nuevo.',
+            imagePrompt: 'error illustration',
+            imageSeed: 0,
             imageUrl: null,
-            stateAfter: currentAdventure ? currentAdventure.state : {
-              location: 'Lugar desconocido',
-              inventory: [],
-              stats: { salud: 100, lucidez: 5 },
-              flags: {},
-              objetivos: []
-            }
-          });
+            suggestedActions: ['Reintentar'],
+            stateAfter: currentAdventure.state
+          };
+          appendStep(errorStep);
+          
+          if (currentAdventureId && user?.id) {
+            await saveCurrentStep();
+          }
         }
       } else {
-        appendStep({
+        const errorStep = {
           stepId: nextStepId,
           turnIndex: nextTurnIndex,
-          timestamp,
+          timestamp: new Date().toISOString(),
           playerInput: playerText,
-          narrative: narrativeText,
-          imagePrompt: 'placeholder fantasy illustration, cinematic, high detail',
+          narrative: result.message || 'Error al conectar con el servidor. Intentá de nuevo.',
+          imagePrompt: 'error illustration',
+          imageSeed: 0,
           imageUrl: null,
-          stateAfter: currentAdventure ? currentAdventure.state : {
-            location: 'Lugar desconocido',
-            inventory: [],
-            stats: { salud: 100, lucidez: 5 },
-            flags: {},
-            objetivos: []
-          }
-        });
+          suggestedActions: [],
+          stateAfter: currentAdventure.state
+        };
+        appendStep(errorStep);
+        
+        if (currentAdventureId && user?.id) {
+          await saveCurrentStep();
+        }
       }
     } catch (err) {
-      console.error('Error sending continuation:', err);
+      console.error('Error sending message:', err);
+      const errorStep = {
+        stepId: nextStepId,
+        turnIndex: nextTurnIndex,
+        timestamp: new Date().toISOString(),
+        playerInput: playerText,
+        narrative: 'Error de conexión. Por favor, verificá tu conexión a internet e intentá de nuevo.',
+        imagePrompt: 'error illustration',
+        imageSeed: 0,
+        imageUrl: null,
+        suggestedActions: [],
+        stateAfter: currentAdventure.state
+      };
+      appendStep(errorStep);
+      
+      if (currentAdventureId && user?.id) {
+        await saveCurrentStep();
+      }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const generateGameResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('norte') || input.includes('north')) {
-      return 'Te dirigís hacia el norte. El sendero se vuelve más empinado y podés escuchar el sonido de agua corriendo a lo lejos.';
-    }
-    if (input.includes('sur') || input.includes('south')) {
-      return 'Caminás hacia el sur. El terreno se vuelve más plano y ves una pequeña cabaña de madera en la distancia.';
-    }
-    if (input.includes('este') || input.includes('east')) {
-      return 'Te movés hacia el este. Hay un bosque denso que bloquea tu camino, pero podés ver un sendero serpenteante entre los árboles.';
-    }
-    if (input.includes('oeste') || input.includes('west')) {
-      return 'Vas hacia el oeste. Te acercás a la casa blanca. La puerta principal sigue cerrada, pero notás que hay una ventana entreabierta.';
-    }
-    if (input.includes('abrir') || input.includes('open')) {
-      if (input.includes('puerta') || input.includes('door')) {
-        return 'Intentás abrir la puerta principal, pero está cerrada con llave. Necesitás encontrar una forma de entrar.';
-      }
-      if (input.includes('buzón') || input.includes('mailbox')) {
-        return 'Abrís el buzón y encontrás una carta amarillenta. Al leerla dice: "La llave está donde el sol nunca llega."';
-      }
-      return 'No podés abrir eso desde acá.';
-    }
-    if (input.includes('mirar') || input.includes('look') || input.includes('examinar')) {
-      return 'Estás en un campo abierto rodeado de colinas suaves. Al oeste hay una casa blanca de dos pisos con una puerta principal de madera. Un pequeño buzón de metal está plantado cerca del sendero. El cielo está despejado y se siente una brisa fresca.';
-    }
-    if (input.includes('inventario') || input.includes('inventory')) {
-      return 'Tu inventario está vacío. Vas a necesitar encontrar algunos objetos útiles para tu aventura.';
-    }
-    if (input.includes('ayuda') || input.includes('help')) {
-      return 'Podés usar comandos como: mirar, ir [dirección], abrir [objeto], tomar [objeto], usar [objeto], inventario. ¡Explorá y usá tu imaginación!';
-    }
-    
-    return `No entiendo qué querés hacer con "${userInput}". Probá con comandos como "mirar", "ir norte", "abrir puerta", o "ayuda" para más opciones.`;
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -277,50 +261,128 @@ const ChatScreen: React.FC = () => {
             {(currentAdventure?.steps || [])
               .slice()
               .sort((a, b) => (a.stepId ?? 0) - (b.stepId ?? 0))
-              .flatMap((step, idx) => {
-              const list: Message[] = [];
-              if (step.playerInput) {
-                list.push({
-                  id: `u-${typeof step.stepId === 'number' ? step.stepId : idx}-${typeof step.turnIndex === 'number' ? step.turnIndex : 't'}`,
-                  content: step.playerInput,
-                  isUser: true,
-                  timestamp: toValidDate(step.timestamp)
-                });
-              }
-              list.push({
-                id: `a-${typeof step.stepId === 'number' ? step.stepId : idx}-${typeof step.turnIndex === 'number' ? step.turnIndex : 't'}`,
-                content: step.narrative,
-                isUser: false,
-                timestamp: toValidDate(step.timestamp)
-              });
-              return list;
-            }).map((message) => (
-              <div
-                key={message.id}
-                className={`message-wrapper ${message.isUser ? 'user-message-wrapper' : 'assistant-message-wrapper'}`}
-              >
-                <div className="message-content-wrapper">
-                  <div className="message-avatar">
-                    {message.isUser ? (
-                      <span className="avatar-text">Vos</span>
-                    ) : (
-                      <span className="avatar-icon">🎮</span>
-                    )}
-                  </div>
-                  <div className="message-bubble">
-                    <div className="message-text">
-                      {message.content}
+              .map((step, idx) => {
+              const stepId = typeof step.stepId === 'number' ? step.stepId : idx;
+              const turnIndex = typeof step.turnIndex === 'number' ? step.turnIndex : idx;
+              
+              return (
+                <div key={`step-${stepId}-${turnIndex}`} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {step.playerInput && (
+                    <div className="message-wrapper user-message-wrapper">
+                      <div className="message-content-wrapper">
+                        <div className="message-avatar">
+                          <span className="avatar-text">Vos</span>
+                        </div>
+                        <div className="message-bubble">
+                          <div className="message-text">
+                            {step.playerInput}
+                          </div>
+                          <div className="message-timestamp">
+                            {toValidDate(step.timestamp).toLocaleTimeString('es-AR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="message-timestamp">
-                      {message.timestamp.toLocaleTimeString('es-AR', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
+                  )}
+                  
+                  <div className="message-wrapper assistant-message-wrapper">
+                    <div className="message-content-wrapper">
+                      <div className="message-avatar">
+                        <span className="avatar-icon">🎮</span>
+                      </div>
+                      <div className="message-bubble">
+                        <div className="message-text">
+                          {step.narrative}
+                        </div>
+                        
+                        {step.suggestedActions && step.suggestedActions.length > 0 && (
+                          <div style={{ 
+                            marginTop: '1rem', 
+                            paddingTop: '1rem', 
+                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem'
+                          }}>
+                            <div style={{ fontSize: '0.85rem', opacity: 0.7, fontWeight: 'bold' }}>
+                              💡 Acciones sugeridas:
+                            </div>
+                            <div style={{ 
+                              display: 'flex', 
+                              flexWrap: 'wrap', 
+                              gap: '0.5rem' 
+                            }}>
+                              {step.suggestedActions.map((action, actionIdx) => (
+                                <button
+                                  key={`action-${stepId}-${actionIdx}`}
+                                  onClick={() => !isLoading && setInputValue(action)}
+                                  disabled={isLoading}
+                                  style={{
+                                    padding: '0.4rem 0.8rem',
+                                    fontSize: '0.85rem',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                                    borderRadius: '1rem',
+                                    color: 'inherit',
+                                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    opacity: isLoading ? 0.5 : 1
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!isLoading) {
+                                      e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
+                                      e.currentTarget.style.transform = 'translateY(-2px)';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  {action}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {step.stateAfter && (
+                          <div style={{ 
+                            marginTop: '1rem', 
+                            paddingTop: '1rem', 
+                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                            fontSize: '0.8rem',
+                            opacity: 0.6,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.3rem'
+                          }}>
+                            <div><strong>📍 Ubicación:</strong> {step.stateAfter.location}</div>
+                            {step.stateAfter.inventory && step.stateAfter.inventory.length > 0 && (
+                              <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
+                            )}
+                            <div>
+                              <strong>❤️ Salud:</strong> {step.stateAfter.stats.salud} | 
+                              <strong> 🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="message-timestamp">
+                          {toValidDate(step.timestamp).toLocaleTimeString('es-AR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
             {isLoading && (
               <div className="message-wrapper assistant-message-wrapper">

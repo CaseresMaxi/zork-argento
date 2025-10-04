@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown, AdventureList } from '../../components';
-import { sendChatMessage } from '../../utils';
+import { sendChatMessage, buildAdventureGenerationPrompt } from '../../utils';
 import { useAdventureStore } from '../../store';
 
 // listado mock removido
@@ -26,33 +26,36 @@ const HomeScreen: React.FC = () => {
     setResponse('');
     
     try {
-      const convId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? (crypto as any).randomUUID()
-          : `conv_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      setConversationId(convId);
-
-      const result = await sendChatMessage(`crear nuevo juego: ${prompt}`, convId);
+      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim());
+      
+      const result = await sendChatMessage(adventurePrompt);
       
       if (result.success) {
-        setResponse(result.message);
         const maybePayload = result.payload;
         const maybeString = result.message;
+        
         try {
+          let adventureData = null;
+          
           if (maybePayload && typeof maybePayload === 'object') {
-            initializeAdventure(maybePayload);
+            adventureData = maybePayload;
           } else if (typeof maybeString === 'string') {
-            const parsed = JSON.parse(maybeString);
-            initializeAdventure(parsed);
+            adventureData = JSON.parse(maybeString);
+          }
+          
+          if (adventureData && adventureData.steps && adventureData.steps.length > 0) {
+            initializeAdventure(adventureData);
+            setResponse(`¡Aventura "${adventureData.title || 'Sin título'}" creada! Hacé clic en "Empezar aventura" para comenzar.`);
+            
+            if (result.conversationId) setConversationId(result.conversationId);
+            if (result.threadId) setThreadId(result.threadId);
           } else {
-            throw new Error('Unsupported response format');
+            throw new Error('Invalid adventure structure');
           }
         } catch (e) {
           console.error('Invalid adventure JSON from API:', e);
+          setResponse('Error al procesar la aventura generada. Intentá de nuevo.');
         }
-
-        if (result.conversationId) setConversationId(result.conversationId);
-        if (result.threadId) setThreadId(result.threadId);
       } else {
         setResponse('Error al generar la aventura. Intentá de nuevo.');
       }

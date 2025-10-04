@@ -54,7 +54,7 @@ export interface AdventureStep {
   imageSeed?: number;
   imageUrl?: string | null;
   suggestedActions?: string[];
-  contextSummary?: string;
+
   stateAfter: AdventureStateSnapshot;
 }
 

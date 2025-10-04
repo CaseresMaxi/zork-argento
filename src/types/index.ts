@@ -70,6 +70,8 @@ export interface Adventure {
   seed?: number;
   state: AdventureStateSnapshot;
   steps: AdventureStep[];
+  conversationId?: string | null;
+  threadId?: string | null;
 }
 
 export interface AdventureDocument extends Adventure {

@@ -84,7 +84,14 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     const state = get().currentAdventure;
     if (!state) return;
     const steps = [...state.steps, step];
-    const updatedAdventure = { ...state, steps, state: step.stateAfter };
+    const { conversationId, threadId } = get();
+    const updatedAdventure = { 
+      ...state, 
+      steps, 
+      state: step.stateAfter,
+      conversationId,
+      threadId
+    };
     set({ currentAdventure: updatedAdventure });
   },
   resetAdventure: () => {
@@ -117,7 +124,14 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     try {
       const adventure = await AdventureService.getAdventure(adventureId, userId);
       if (adventure) {
-        set({ currentAdventure: adventure, currentAdventureId: adventureId, currentUserId: userId, isLoading: false });
+        set({ 
+          currentAdventure: adventure, 
+          currentAdventureId: adventureId, 
+          currentUserId: userId, 
+          conversationId: adventure.conversationId || null,
+          threadId: adventure.threadId || null,
+          isLoading: false 
+        });
       } else {
         set({ error: 'Adventure not found', isLoading: false });
       }
@@ -126,7 +140,7 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     }
   },
   saveCurrentStep: async () => {
-    const { currentAdventure, currentAdventureId, currentUserId, isSavingStep } = get();
+    const { currentAdventure, currentAdventureId, currentUserId, conversationId, threadId, isSavingStep } = get();
     if (isSavingStep) return;
     if (!currentAdventure || !currentAdventureId || !currentUserId) {
       return;
@@ -134,7 +148,13 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
 
     try {
       set({ isSavingStep: true });
-      await AdventureService.saveAdventureStep(currentAdventureId, currentAdventure, currentUserId);
+      await AdventureService.saveAdventureStep(
+        currentAdventureId, 
+        currentAdventure, 
+        currentUserId,
+        conversationId,
+        threadId
+      );
       set({ isSavingStep: false });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to save step', isSavingStep: false });
@@ -151,8 +171,20 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
       return [];
     }
   },
-  setConversationId: (id) => set({ conversationId: id }),
-  setThreadId: (id) => set({ threadId: id })
+  setConversationId: (id) => {
+    set({ conversationId: id });
+    const { currentAdventure } = get();
+    if (currentAdventure) {
+      set({ currentAdventure: { ...currentAdventure, conversationId: id } });
+    }
+  },
+  setThreadId: (id) => {
+    set({ threadId: id });
+    const { currentAdventure } = get();
+    if (currentAdventure) {
+      set({ currentAdventure: { ...currentAdventure, threadId: id } });
+    }
+  }
 }));
 
 

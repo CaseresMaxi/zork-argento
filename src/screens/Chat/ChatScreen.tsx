@@ -18,14 +18,14 @@ const ChatScreen: React.FC = () => {
   const { 
     currentAdventure, 
     currentAdventureId, 
-    initializeWithMock, 
     appendStep, 
     saveAdventure, 
     saveCurrentStep,
     conversationId,
     setConversationId,
     threadId,
-    setThreadId 
+    setThreadId,
+    resetAdventure
   } = useAdventureStore();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,13 +42,19 @@ const ChatScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!currentAdventure) initializeWithMock();
-  }, [currentAdventure, initializeWithMock]);
+    if (!currentAdventure) {
+      navigate('/home');
+    }
+  }, [currentAdventure, navigate]);
 
   useEffect(() => {
-    if (currentAdventure && !currentAdventureId && user?.id) {
-      saveAdventure(user.id);
-    }
+    const saveNewAdventure = async () => {
+      if (currentAdventure && !currentAdventureId && user?.id) {
+        console.log('📝 [ChatScreen] Saving new adventure to Firebase...');
+        await saveAdventure(user.id);
+      }
+    };
+    saveNewAdventure();
   }, [currentAdventure, currentAdventureId, user?.id, saveAdventure]);
 
 
@@ -109,14 +115,29 @@ const ChatScreen: React.FC = () => {
               imageSeed: stepToAppend.imageSeed ?? Math.floor(Math.random() * 1000000),
               imageUrl: stepToAppend.imageUrl ?? null,
               suggestedActions: Array.isArray(stepToAppend.suggestedActions) ? stepToAppend.suggestedActions : [],
-              contextSummary: stepToAppend.contextSummary,
+              // contextSummary: stepToAppend.contextSummary,
               stateAfter: stepToAppend.stateAfter ?? currentAdventure.state
             };
             
             appendStep(safeStep);
             
-            if (currentAdventureId && user?.id) {
+            console.log('🎯 [ChatScreen] Step appended, attempting to save...', {
+              currentAdventureId,
+              userId: user?.id,
+              stepId: safeStep.stepId,
+              totalSteps: currentAdventure.steps.length + 1
+            });
+            
+            if (!currentAdventureId && user?.id) {
+              console.log('⚠️ [ChatScreen] No adventureId yet, saving adventure first...');
+              await saveAdventure(user.id);
+              console.log('✅ [ChatScreen] Adventure saved');
+            }
+            
+            if (user?.id) {
               await saveCurrentStep();
+            } else {
+              console.warn('⚠️ [ChatScreen] Could not save step - missing userId');
             }
           } else {
             console.error('Invalid or missing narrative in step from API:', raw);
@@ -134,7 +155,10 @@ const ChatScreen: React.FC = () => {
             };
             appendStep(errorStep);
             
-            if (currentAdventureId && user?.id) {
+            if (!currentAdventureId && user?.id) {
+              await saveAdventure(user.id);
+            }
+            if (user?.id) {
               await saveCurrentStep();
             }
           }
@@ -154,7 +178,10 @@ const ChatScreen: React.FC = () => {
           };
           appendStep(errorStep);
           
-          if (currentAdventureId && user?.id) {
+          if (!currentAdventureId && user?.id) {
+            await saveAdventure(user.id);
+          }
+          if (user?.id) {
             await saveCurrentStep();
           }
         }
@@ -173,7 +200,10 @@ const ChatScreen: React.FC = () => {
         };
         appendStep(errorStep);
         
-        if (currentAdventureId && user?.id) {
+        if (!currentAdventureId && user?.id) {
+          await saveAdventure(user.id);
+        }
+        if (user?.id) {
           await saveCurrentStep();
         }
       }
@@ -193,7 +223,10 @@ const ChatScreen: React.FC = () => {
       };
       appendStep(errorStep);
       
-      if (currentAdventureId && user?.id) {
+      if (!currentAdventureId && user?.id) {
+        await saveAdventure(user.id);
+      }
+      if (user?.id) {
         await saveCurrentStep();
       }
     } finally {
@@ -213,8 +246,7 @@ const ChatScreen: React.FC = () => {
   };
 
   const handleGoBack = () => {
-    setConversationId(null);
-    setThreadId(null);
+    resetAdventure();
     navigate('/home');
   };
 
@@ -364,10 +396,10 @@ const ChatScreen: React.FC = () => {
                             {step.stateAfter.inventory && step.stateAfter.inventory.length > 0 && (
                               <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
                             )}
-                            <div>
+                            {/* <div>
                               <strong>❤️ Salud:</strong> {step.stateAfter.stats.salud} | 
                               <strong> 🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}
-                            </div>
+                            </div> */}
                           </div>
                         )}
                         

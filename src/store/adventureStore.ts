@@ -12,7 +12,6 @@ interface AdventureStore {
   error: string | null;
   isSavingAdventure: boolean;
   isSavingStep: boolean;
-  initializeWithMock: () => void;
   initializeAdventure: (adventure: Adventure) => void;
   appendStep: (step: AdventureStep) => void;
   resetAdventure: () => void;
@@ -25,44 +24,6 @@ interface AdventureStore {
   setThreadId: (id: string | null) => void;
 }
 
-const buildInitialStateSnapshot = (): AdventureStateSnapshot => ({
-  location: 'Entrada de la cripta',
-  inventory: [],
-  stats: { salud: 100, lucidez: 5 },
-  flags: {},
-  objetivos: ['Explorar la cripta']
-});
-
-const buildMockAdventure = (): Adventure => {
-  const createdAt = new Date().toISOString();
-  const stepTimestamp = createdAt;
-  const state = buildInitialStateSnapshot();
-  const firstStep: AdventureStep = {
-    stepId: 0,
-    turnIndex: 0,
-    timestamp: stepTimestamp,
-    playerInput: null,
-    narrative: 'El aire huele a piedra húmeda. Ante ti, una escalera desciende a la oscuridad; a la izquierda, una puerta de hierro con relieves de luciérnagas palpita tenuemente. Se oye un goteo lejano. ¿Qué haces?',
-    imagePrompt: 'moody underground crypt entrance, damp stone, flickering firefly motifs on iron door, candles, light fog, dramatic chiaroscuro, wide angle, high detail, dark fantasy art',
-    imageSeed: 123456,
-    imageUrl: null,
-    suggestedActions: ['Encender una antorcha', 'Bajar por la escalera', 'Examinar la puerta', 'Escuchar con atención'],
-    contextSummary: 'Ubicación: Entrada de la cripta. Inventario: ninguno. Objetivo: Explorar la cripta. Salud: 100, Lucidez: 5.',
-    stateAfter: state
-  };
-  return {
-    version: '1.0',
-    adventureId: 'adv_mock_0001',
-    title: 'La cripta de las luciérnagas',
-    genre: 'fantasía oscura',
-    language: 'es',
-    createdAt,
-    seed: 4211337,
-    state,
-    steps: [firstStep]
-  };
-};
-
 export const useAdventureStore = create<AdventureStore>((set, get) => ({
   currentAdventure: null,
   currentAdventureId: null,
@@ -73,12 +34,16 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
   error: null,
   isSavingAdventure: false,
   isSavingStep: false,
-  initializeWithMock: () => {
-    const mock = buildMockAdventure();
-    set({ currentAdventure: mock, currentAdventureId: null, currentUserId: null, conversationId: null, isLoading: false, error: null });
-  },
   initializeAdventure: (adventure) => {
-    set({ currentAdventure: adventure, currentAdventureId: null, currentUserId: null, isLoading: false, error: null });
+    set({ 
+      currentAdventure: adventure, 
+      currentAdventureId: null, 
+      currentUserId: null, 
+      conversationId: adventure.conversationId || null,
+      threadId: adventure.threadId || null,
+      isLoading: false, 
+      error: null 
+    });
   },
   appendStep: (step) => {
     const state = get().currentAdventure;
@@ -141,13 +106,43 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
   },
   saveCurrentStep: async () => {
     const { currentAdventure, currentAdventureId, currentUserId, conversationId, threadId, isSavingStep } = get();
-    if (isSavingStep) return;
+    
+    console.log('🔍 [saveCurrentStep] Attempting to save step:', {
+      hasAdventure: !!currentAdventure,
+      adventureId: currentAdventureId,
+      userId: currentUserId,
+      conversationId,
+      threadId,
+      stepsCount: currentAdventure?.steps?.length,
+      isSavingStep
+    });
+    
+    if (isSavingStep) {
+      console.log('⏸️ [saveCurrentStep] Already saving, skipping...');
+      return;
+    }
+    
     if (!currentAdventure || !currentAdventureId || !currentUserId) {
+      console.warn('⚠️ [saveCurrentStep] Missing required data:', {
+        hasAdventure: !!currentAdventure,
+        hasAdventureId: !!currentAdventureId,
+        hasUserId: !!currentUserId
+      });
       return;
     }
 
     try {
       set({ isSavingStep: true });
+      
+      console.log('💾 [saveCurrentStep] Saving to Firebase:', {
+        adventureId: currentAdventureId,
+        userId: currentUserId,
+        conversationId,
+        threadId,
+        steps: currentAdventure.steps.length,
+        lastStep: currentAdventure.steps[currentAdventure.steps.length - 1]
+      });
+      
       await AdventureService.saveAdventureStep(
         currentAdventureId, 
         currentAdventure, 
@@ -155,8 +150,11 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
         conversationId,
         threadId
       );
+      
+      console.log('✅ [saveCurrentStep] Successfully saved step to Firebase');
       set({ isSavingStep: false });
     } catch (error) {
+      console.error('❌ [saveCurrentStep] Error saving step:', error);
       set({ error: error instanceof Error ? error.message : 'Failed to save step', isSavingStep: false });
     }
   },

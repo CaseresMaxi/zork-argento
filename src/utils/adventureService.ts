@@ -20,13 +20,31 @@ const ADVENTURES_COLLECTION = 'adventures';
 export class AdventureService {
   static async saveAdventure(adventure: Adventure, userId: string): Promise<string> {
     try {
-      const adventureData: Omit<AdventureDocument, 'id'> = {
+      const adventureData: Record<string, any> = {
         ...adventure,
         userId,
         updatedAt: new Date().toISOString()
       };
+      
+      const cleanedData = Object.keys(adventureData).reduce((acc, key) => {
+        if (adventureData[key] !== undefined) {
+          acc[key] = adventureData[key];
+        }
+        return acc;
+      }, {} as Record<string, any>);
 
-      const docRef = await addDoc(collection(db, 'users', userId, ADVENTURES_COLLECTION), adventureData);
+      console.log('💾 [saveAdventure] Creating new adventure in Firebase:', {
+        userId,
+        title: adventure.title,
+        stepsCount: adventure.steps?.length,
+        hasConversationId: !!adventure.conversationId,
+        hasThreadId: !!adventure.threadId
+      });
+
+      const docRef = await addDoc(collection(db, 'users', userId, ADVENTURES_COLLECTION), cleanedData);
+      
+      console.log('✅ [saveAdventure] Adventure created with ID:', docRef.id);
+      
       return docRef.id;
     } catch (error) {
       console.error('Error saving adventure:', error);
@@ -37,12 +55,25 @@ export class AdventureService {
   static async updateAdventure(adventureId: string, adventure: Partial<Adventure>, userId: string): Promise<void> {
     try {
       const docRef = doc(db, 'users', userId, ADVENTURES_COLLECTION, adventureId);
-      const updateData = {
+      const updateData: Record<string, any> = {
         ...adventure,
         updatedAt: new Date().toISOString()
       };
       
-      await updateDoc(docRef, updateData);
+      const cleanedData = Object.keys(updateData).reduce((acc, key) => {
+        if (updateData[key] !== undefined) {
+          acc[key] = updateData[key];
+        }
+        return acc;
+      }, {} as Record<string, any>);
+      
+      console.log('📤 [updateAdventure] Sending to Firebase:', {
+        adventureId,
+        fields: Object.keys(cleanedData),
+        data: cleanedData
+      });
+      
+      await updateDoc(docRef, cleanedData);
     } catch (error) {
       console.error('Error updating adventure:', error);
       throw new Error('Failed to update adventure');
@@ -132,12 +163,32 @@ export class AdventureService {
     threadId?: string | null
   ): Promise<void> {
     try {
-      await this.updateAdventure(adventureId, {
+      const updatePayload: Partial<Adventure> = {
         steps: adventure.steps,
-        state: adventure.state,
-        conversationId: conversationId || adventure.conversationId,
-        threadId: threadId || adventure.threadId
-      }, userId);
+        state: adventure.state
+      };
+      
+      const finalConversationId = conversationId || adventure.conversationId;
+      const finalThreadId = threadId || adventure.threadId;
+      
+      if (finalConversationId) {
+        updatePayload.conversationId = finalConversationId;
+      }
+      
+      if (finalThreadId) {
+        updatePayload.threadId = finalThreadId;
+      }
+      
+      console.log('💾 [saveAdventureStep] Preparing update:', {
+        adventureId,
+        stepsCount: adventure.steps.length,
+        hasConversationId: !!finalConversationId,
+        hasThreadId: !!finalThreadId,
+        conversationId: finalConversationId,
+        threadId: finalThreadId
+      });
+      
+      await this.updateAdventure(adventureId, updatePayload, userId);
     } catch (error) {
       console.error('Error saving adventure step:', error);
       throw new Error('Failed to save adventure step');

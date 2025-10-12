@@ -66,30 +66,32 @@ export const AdventureList: React.FC<AdventureListProps> = ({ onSelectAdventure 
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-amber-400 mb-4">Tus Aventuras</h3>
       {adventures.map((adventure) => (
         <div
           key={adventure.id}
-          className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-amber-600 transition-colors"
+          className=""
+          style={{borderBottom: '1px solid white'}}
         >
-          <div className="flex justify-between items-start mb-2">
-            <h4 className="font-medium text-white">{adventure.title}</h4>
-            <span className="text-xs text-gray-400 capitalize">{adventure.genre}</span>
-          </div>
-          
-          <p className="text-sm text-gray-300 mb-2">
-            {adventure.steps.length} paso{adventure.steps.length !== 1 ? 's' : ''}
-          </p>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">
+          <div className="flex justify-between items-start" style={{marginBottom: 0}}>
+            <h3 className="font-medium text-white" style={{marginBottom: 8}}>{adventure.title}</h3>
+              <span className="text-xs text-gray-500">
               {adventure.updatedAt ? formatDate(adventure.updatedAt) : formatDate(adventure.createdAt)}
             </span>
-            
+        
+          </div>
+          
+          <p className="text-gray-400 capitalize" style={{marginBottom: 24, fontSize: 20}}>{adventure.genre}</p> 
+          
+          <div className="flex justify-between items-center" style={{marginBottom: 16}}>
+         
+             <p className="text-sm text-gray-300" style={{marginBottom: 0}}>
+            {adventure.steps.length} paso{adventure.steps.length !== 1 ? 's' : ''}
+          </p>
             <Button
               onClick={() => handleLoadAdventure(adventure)}
               variant="secondary"
               size="sm"
+              fullWidth={false}
             >
               Continuar
             </Button>

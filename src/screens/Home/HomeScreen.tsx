@@ -19,6 +19,12 @@ const HomeScreen: React.FC = () => {
     logout();
   };
 
+  const generateUniqueId = (): string => {
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    return `${timestamp}${randomPart}`;
+  };
+
   const handleGenerateAdventure = async () => {
     if (!prompt.trim()) return;
     
@@ -26,9 +32,12 @@ const HomeScreen: React.FC = () => {
     setResponse('');
     
     try {
+      const uniqueConversationId = generateUniqueId();
+      setConversationId(uniqueConversationId);
+      
       const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim());
       
-      const result = await sendChatMessage(adventurePrompt);
+      const result = await sendChatMessage(adventurePrompt, uniqueConversationId);
       
       if (result.success) {
         const maybePayload = result.payload;
@@ -44,11 +53,15 @@ const HomeScreen: React.FC = () => {
           }
           
           if (adventureData && adventureData.steps && adventureData.steps.length > 0) {
+            adventureData.conversationId = uniqueConversationId;
+            
+            if (result.threadId) {
+              adventureData.threadId = result.threadId;
+              setThreadId(result.threadId);
+            }
+            
             initializeAdventure(adventureData);
             setResponse(`¡Aventura "${adventureData.title || 'Sin título'}" creada! Hacé clic en "Empezar aventura" para comenzar.`);
-            
-            if (result.conversationId) setConversationId(result.conversationId);
-            if (result.threadId) setThreadId(result.threadId);
           } else {
             throw new Error('Invalid adventure structure');
           }

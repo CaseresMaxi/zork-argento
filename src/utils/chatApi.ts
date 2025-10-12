@@ -61,11 +61,9 @@ export const buildAdventureContinuationPrompt = (
     'Contexto (JSON compacto):\n' +
     adventureJson +
     '\n' +
-    'Generá SOLO el próximo step con los campos exactos: stepId, turnIndex, timestamp (ISO), playerInput, narrative, imagePrompt, imageSeed, imageUrl, suggestedActions, contextSummary, stateAfter.\n' +
+    'Generá SOLO el próximo step con los campos exactos: stepId, turnIndex, timestamp (ISO), playerInput, narrative, imagePrompt, imageSeed, imageUrl, suggestedActions, stateAfter.\n' +
     'Todos los textos deben ser en español.\n' +
-    `Usá estos valores: stepId=${nextStepId}, turnIndex=${nextTurnIndex}, playerInput="${userInput}".\n` +
-    'Actualizá stateAfter coherentemente y escribí contextSummary con una frase corta con ubicación, inventario clave, objetivos y stats principales.\n'
-  );
+    `Usá estos valores: stepId=${nextStepId}, turnIndex=${nextTurnIndex}, playerInput="${userInput}".\n`  );
 };
 
 type StepMeta = { stepId?: number; turnIndex?: number };

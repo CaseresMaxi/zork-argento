@@ -396,10 +396,10 @@ const ChatScreen: React.FC = () => {
                             {step.stateAfter.inventory && step.stateAfter.inventory.length > 0 && (
                               <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
                             )}
-                            <div>
+                            {/* <div>
                               <strong>❤️ Salud:</strong> {step.stateAfter.stats.salud} | 
                               <strong> 🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}
-                            </div>
+                            </div> */}
                           </div>
                         )}
                         

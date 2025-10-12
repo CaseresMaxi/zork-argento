@@ -1,0 +1,15 @@
+{
+  "azureBoards.workItemTypes": [
+    "Bug",
+    "User Story",
+    "Task",
+    "Feature",
+    "Epic"
+  ],
+  "azureBoards.projectUrl": "https://dev.azure.com/zork-argento/Zork%20Argento",
+  "azureBoards.organization": "zork-argento",
+  "azureBoards.project": "Zork Argento",
+  "azurePipelines.defaultBranch": "main",
+  "azurePipelines.organization": "zork-argento",
+  "azurePipelines.project": "Zork Argento"
+}

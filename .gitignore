@@ -1,2 +1,12 @@
 node_modules/
 .env.local
+.env
+*.log
+
+# Azure DevOps
+.azure/
+azure-pipelines.yml.backup
+
+# Build outputs
+dist/
+build/

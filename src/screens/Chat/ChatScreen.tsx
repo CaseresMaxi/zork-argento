@@ -250,6 +250,9 @@ const ChatScreen: React.FC = () => {
     navigate('/home');
   };
 
+  // Detectar si el juego terminó
+  const isGameFinished = Boolean(currentAdventure?.state?.flags?.juegoGanado);
+
   return (
     <div className="chat-screen">
       <header style={{margin: "1rem 2rem"}} className="home-header glass-effect">
@@ -290,10 +293,12 @@ const ChatScreen: React.FC = () => {
       <main className="chat-main">
         <div className="chat-container-full">
           <div className="messages-container">
-            {(currentAdventure?.steps || [])
-              .slice()
-              .sort((a, b) => (a.stepId ?? 0) - (b.stepId ?? 0))
-              .map((step, idx) => {
+            {(
+              (currentAdventure?.steps || [])
+                .filter(step => step.narrative !== 'Error al conectar con el servidor. Intentá de nuevo.')
+                .slice()
+                .sort((a, b) => (a.stepId ?? 0) - (b.stepId ?? 0))
+            ).map((step, idx) => {
               const stepId = typeof step.stepId === 'number' ? step.stepId : idx;
               const turnIndex = typeof step.turnIndex === 'number' ? step.turnIndex : idx;
               
@@ -440,6 +445,23 @@ const ChatScreen: React.FC = () => {
           </div>
 
           <div className="input-container">
+            {isGameFinished && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  background: 'rgba(34,197,94,0.15)',
+                  borderRadius: '1rem',
+                  textAlign: 'center',
+                  color: '#22c55e',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem'
+                }}
+              >
+                🎉 ¡Felicitaciones! Has finalizado la aventura. <br />
+                El juego ha terminado.
+              </div>
+            )}
             <div className="input-wrapper">
               <textarea
                 ref={inputRef}
@@ -449,11 +471,11 @@ const ChatScreen: React.FC = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 rows={1}
-                disabled={isLoading}
+                disabled={isLoading || isGameFinished}
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
+                disabled={!inputValue.trim() || isLoading || isGameFinished}
                 className="send-button-chat"
                 variant="primary"
               >

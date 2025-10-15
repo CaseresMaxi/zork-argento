@@ -11,6 +11,8 @@ interface ChatResponse {
 //   message: string;
 // }
 
+const API_KEY = process.env.ZORK_API_KEY || ''; // Ensure API key is a string
+
 export const buildAdventureGenerationPrompt = (userDescription: string, seed?: number): string => {
   const finalSeed = typeof seed === 'number' ? seed : Math.floor(Math.random() * 1000000);
   return (
@@ -70,11 +72,14 @@ type StepMeta = { stepId?: number; turnIndex?: number };
 
 export const sendChatMessage = async (message: string, conversationId?: string, step?: StepMeta, threadId?: string): Promise<ChatResponse> => {
   try {
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY, // Add API key header
+    });
+
     const response = await fetch('https://zork-argento-api.onrender.com/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify(
         {
           message,

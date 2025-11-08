@@ -5,13 +5,13 @@ interface ChatResponse {
   conversationId?: string;
   threadId?: string;
   timestamp?: string;
+  imageBase64?: string | null;
+  imageUrl?: string | null;
 }
 
-// interface ChatRequest {
-//   message: string;
-// }
+import { generateImageForStep, uploadImageToStorage } from './imageService';
 
-const API_KEY = process.env.ZORK_API_KEY || ''; // Ensure API key is a string
+const API_KEY = import.meta.env.ZORK_API_KEY || ''; // Ensure API key is a string
 
 export const buildAdventureGenerationPrompt = (userDescription: string, seed?: number): string => {
   const finalSeed = typeof seed === 'number' ? seed : Math.floor(Math.random() * 1000000);
@@ -70,14 +70,21 @@ export const buildAdventureContinuationPrompt = (
 
 type StepMeta = { stepId?: number; turnIndex?: number };
 
-export const sendChatMessage = async (message: string, conversationId?: string, step?: StepMeta, threadId?: string): Promise<ChatResponse> => {
+export const sendChatMessage = async (
+  message: string, 
+  conversationId?: string, 
+  step?: StepMeta, 
+  threadId?: string,
+  userId?: string,
+  adventureId?: string
+): Promise<ChatResponse> => {
   try {
     const headers = new Headers({
       'Content-Type': 'application/json',
       'x-api-key': API_KEY, // Add API key header
     });
 
-    const response = await fetch('https://zork-argento-api.onrender.com/api/chat', {
+    const response = await fetch('/api/chat', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(
@@ -108,6 +115,53 @@ export const sendChatMessage = async (message: string, conversationId?: string, 
     const apiThreadId = inner?.threadId ?? root.threadId;
     const timestamp = inner?.timestamp ?? root.timestamp;
 
+    let imageBase64: string | null = null;
+    let imageUrl: string | null = null;
+    try {
+      const parsedPayload = typeof nestedMessage === 'string' ? JSON.parse(nestedMessage) : nestedMessage;
+      
+      let narrative = '';
+      let imagePrompt = '';
+      let stepId = step?.stepId ?? 0;
+      
+      if (parsedPayload && typeof parsedPayload === 'object') {
+        if (Array.isArray(parsedPayload.steps) && parsedPayload.steps.length > 0) {
+          const lastStep = parsedPayload.steps[parsedPayload.steps.length - 1];
+          narrative = lastStep?.narrative || '';
+          imagePrompt = lastStep?.imagePrompt || '';
+          stepId = lastStep?.stepId ?? stepId;
+        } else if (parsedPayload.narrative) {
+          narrative = parsedPayload.narrative;
+          imagePrompt = parsedPayload.imagePrompt || '';
+          stepId = parsedPayload.stepId ?? stepId;
+        }
+      }
+      
+      if (narrative || imagePrompt) {
+        console.log('🎨 Generating image for step...');
+        imageBase64 = await generateImageForStep(narrative, imagePrompt);
+        if (imageBase64) {
+          console.log('✅ Image generated successfully');
+          
+          if (userId && adventureId) {
+            console.log('📤 Uploading image to Firebase Storage...');
+            imageUrl = await uploadImageToStorage(imageBase64, userId, adventureId, stepId);
+            if (imageUrl) {
+              console.log('✅ Image uploaded to Storage:', imageUrl);
+            } else {
+              console.log('⚠️ Image upload failed, but base64 is available');
+            }
+          } else {
+            console.log('⚠️ userId or adventureId not provided, skipping upload');
+          }
+        } else {
+          console.log('⚠️ Image generation failed or returned null');
+        }
+      }
+    } catch (imageError) {
+      console.error('Error during image generation:', imageError);
+    }
+
     return {
       message: finalMessage,
       success: true,
@@ -115,6 +169,8 @@ export const sendChatMessage = async (message: string, conversationId?: string, 
       conversationId: convId,
       threadId: apiThreadId,
       timestamp,
+      imageBase64,
+      imageUrl,
     };
   } catch (error) {
     console.error('Error calling chat API:', error);

@@ -20,8 +20,14 @@ const ADVENTURES_COLLECTION = 'adventures';
 export class AdventureService {
   static async saveAdventure(adventure: Adventure, userId: string): Promise<string> {
     try {
+      const stepsWithoutBase64 = (adventure.steps || []).map((step) => {
+        const { imageBase64, ...stepWithoutBase64 } = step;
+        return stepWithoutBase64;
+      });
+      
       const adventureData: Record<string, any> = {
         ...adventure,
+        steps: stepsWithoutBase64,
         userId,
         updatedAt: new Date().toISOString()
       };
@@ -33,10 +39,12 @@ export class AdventureService {
         return acc;
       }, {} as Record<string, any>);
 
+      const stepsWithImages = (stepsWithoutBase64 || []).filter(s => s.imageUrl).length;
       console.log('💾 [saveAdventure] Creating new adventure in Firebase:', {
         userId,
         title: adventure.title,
         stepsCount: adventure.steps?.length,
+        stepsWithImagesCount: stepsWithImages,
         hasConversationId: !!adventure.conversationId,
         hasThreadId: !!adventure.threadId
       });
@@ -55,10 +63,18 @@ export class AdventureService {
   static async updateAdventure(adventureId: string, adventure: Partial<Adventure>, userId: string): Promise<void> {
     try {
       const docRef = doc(db, 'users', userId, ADVENTURES_COLLECTION, adventureId);
-      const updateData: Record<string, any> = {
+      
+      let updateData: Record<string, any> = {
         ...adventure,
         updatedAt: new Date().toISOString()
       };
+      
+      if (updateData.steps && Array.isArray(updateData.steps)) {
+        updateData.steps = updateData.steps.map((step: any) => {
+          const { imageBase64, ...stepWithoutBase64 } = step;
+          return stepWithoutBase64;
+        });
+      }
       
       const cleanedData = Object.keys(updateData).reduce((acc, key) => {
         if (updateData[key] !== undefined) {
@@ -67,9 +83,12 @@ export class AdventureService {
         return acc;
       }, {} as Record<string, any>);
       
+      const stepsWithImages = (updateData.steps || []).filter((s: any) => s.imageUrl).length;
       console.log('📤 [updateAdventure] Sending to Firebase:', {
         adventureId,
         fields: Object.keys(cleanedData),
+        stepsCount: updateData.steps?.length || 0,
+        stepsWithImagesCount: stepsWithImages,
         data: cleanedData
       });
       
@@ -179,9 +198,13 @@ export class AdventureService {
         updatePayload.threadId = finalThreadId;
       }
       
+      const stepsWithImages = adventure.steps.filter(s => s.imageUrl).length;
+      const lastStepHasImage = adventure.steps.length > 0 && !!adventure.steps[adventure.steps.length - 1]?.imageUrl;
       console.log('💾 [saveAdventureStep] Preparing update:', {
         adventureId,
         stepsCount: adventure.steps.length,
+        stepsWithImagesCount: stepsWithImages,
+        lastStepHasImage,
         hasConversationId: !!finalConversationId,
         hasThreadId: !!finalThreadId,
         conversationId: finalConversationId,

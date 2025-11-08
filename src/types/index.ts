@@ -53,6 +53,7 @@ export interface AdventureStep {
   imagePrompt: string;
   imageSeed?: number;
   imageUrl?: string | null;
+  imageBase64?: string | null;
   suggestedActions?: string[];
 
   stateAfter: AdventureStateSnapshot;

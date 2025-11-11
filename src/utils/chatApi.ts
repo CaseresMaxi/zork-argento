@@ -13,9 +13,9 @@ import { generateImageForStep, uploadImageToStorage } from './imageService';
 
 const API_KEY = import.meta.env.ZORK_API_KEY || ''; // Ensure API key is a string
 
-export const buildAdventureGenerationPrompt = (userDescription: string, seed?: number, gameLength?:string): string => {
+export const buildAdventureGenerationPrompt = (userDescription: string, gameLength?:string): string => {
   gameLength = gameLength || 'corta';
-  const finalSeed = typeof seed === 'number' ? seed : Math.floor(Math.random() * 1000000);
+  const finalSeed = Math.floor(Math.random() * 1000000);
   return (
     'Sos un generador de aventuras tipo Zork. Devolvé SOLO un JSON válido y nada más, sin explicaciones, sin markdown.\n' +
     'Requisitos del objeto JSON:\n' +

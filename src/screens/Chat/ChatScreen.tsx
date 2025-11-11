@@ -405,7 +405,7 @@ const ChatScreen: React.FC = () => {
                           {step.narrative}
                         </div>
                         
-                        {step.suggestedActions && step.suggestedActions.length > 0 && (
+                        {!isGameFinished && step.suggestedActions && step.suggestedActions.length > 0 && (
                           <div style={{ 
                             marginTop: '1rem', 
                             paddingTop: '1rem', 

@@ -12,6 +12,7 @@ const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [gameLength, setGameLength] = useState<"corta" | "media" | "larga" | null>(null);
   const [response, setResponse] = useState<string>('');
   const { initializeAdventure, setConversationId, setThreadId } = useAdventureStore();
 
@@ -35,7 +36,7 @@ const HomeScreen: React.FC = () => {
       const uniqueConversationId = generateUniqueId();
       setConversationId(uniqueConversationId);
       
-      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim());
+      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim(),gameLength||undefined);
       
       const result = await sendChatMessage(adventurePrompt, uniqueConversationId);
       
@@ -161,6 +162,32 @@ const HomeScreen: React.FC = () => {
                   rows={3}
                   disabled={isGenerating}
                 />
+
+                {/* 🔹 Selector de duración */}
+                <div 
+                    style={{ 
+                        marginTop: "0.5rem", /* Margen superior para separarlo del textarea */
+                        marginBottom: "0.25rem", /* Margen inferior para separarlo de los botones */
+                        fontSize: "0.9rem", 
+                        color: "#AAA" /* Color sutil */
+                    }}
+                >
+                    Elegí la duración de tu partida:
+                </div>
+                <div className="duration-selector" style={{ marginTop: "0.25rem", display: "flex", gap: "0.25rem" }}>
+                  {["corta", "media", "larga"].map((option) => (
+                    <Button
+                      key={option}
+                      size='sm'
+                      variant={gameLength === option ? "secondary" : "outline"}
+                      onClick={() => setGameLength(option as "corta" | "media" | "larga")}
+                      disabled={isGenerating}
+                      className='duration-selector'
+                    >
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </Button>
+                  ))}
+                </div>
                 <Button
                   onClick={handleGenerateAdventure}
                   disabled={isGenerating}

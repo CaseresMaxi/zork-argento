@@ -90,6 +90,38 @@ export const uploadImageToStorage = async (
   }
 };
 
+export const uploadCoverImageToStorage = async (
+  imageBase64: string,
+  userId: string,
+  adventureId: string
+): Promise<string | null> => {
+  try {
+    const imagePath = `adventures/${userId}/${adventureId}/cover-${Date.now()}.png`;
+    const storageRef = ref(storage, imagePath);
+    
+    const base64Data = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64;
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/png' });
+    
+    await uploadBytes(storageRef, blob);
+    
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log('✅ Cover image uploaded to Firebase Storage:', downloadURL);
+    
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading cover image to Firebase Storage:', error);
+    return null;
+  }
+};
+
 export const generateImageForStep = async (
   narrative: string, 
   imagePrompt?: string

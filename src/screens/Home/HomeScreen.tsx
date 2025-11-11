@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown, AdventureList } from '../../components';
-import { sendChatMessage, buildAdventureGenerationPrompt } from '../../utils';
+import { sendChatMessage, buildAdventureGenerationPrompt, generateImageForStep, uploadCoverImageToStorage } from '../../utils';
 import { useAdventureStore } from '../../store';
+import { useAdventureStore as adventureStore } from '../../store/adventureStore';
 
 // listado mock removido
 
@@ -12,9 +13,10 @@ const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [gameLength, setGameLength] = useState<"corta" | "media" | "larga" | null>(null);
+  const [gameLength, setGameLength] = useState<"corta" | "media" | "larga">("media");
   const [response, setResponse] = useState<string>('');
-  const { initializeAdventure, setConversationId, setThreadId } = useAdventureStore();
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const { initializeAdventure, setConversationId, setThreadId, saveAdventure, updateStep, saveCurrentStep } = useAdventureStore();
   const [HasError, setHasError] = useState<boolean>(false);
 
   const handleLogout = () => {
@@ -31,12 +33,13 @@ const HomeScreen: React.FC = () => {
     if (!prompt.trim()) return;
     setIsGenerating(true);
     setResponse('');
+    setCoverImageUrl(null);
     
     try {
       const uniqueConversationId = generateUniqueId();
       setConversationId(uniqueConversationId);
       
-      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim(),gameLength||undefined);
+      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim(), gameLength);
       
       const result = await sendChatMessage(adventurePrompt, uniqueConversationId);
       
@@ -62,6 +65,44 @@ const HomeScreen: React.FC = () => {
             }
             
             initializeAdventure(adventureData);
+            
+            if (user?.id) {
+              await saveAdventure(user.id);
+              const adventureId = adventureStore.getState().currentAdventureId;
+              
+              if (adventureId && adventureData.steps[0]) {
+                const firstStep = adventureData.steps[0];
+                const coverImagePrompt = firstStep.imagePrompt || firstStep.narrative;
+                
+                try {
+                  console.log('🎨 Generating cover image for adventure...');
+                  const coverImageBase64 = await generateImageForStep(firstStep.narrative, coverImagePrompt);
+                  
+                  if (coverImageBase64) {
+                    const uploadedCoverImageUrl = await uploadCoverImageToStorage(coverImageBase64, user.id, adventureId);
+                    
+                    if (uploadedCoverImageUrl) {
+                      const { AdventureService } = await import('../../utils/adventureService');
+                      await AdventureService.updateAdventure(adventureId, { coverImageUrl: uploadedCoverImageUrl }, user.id);
+                      console.log('✅ Cover image saved:', uploadedCoverImageUrl);
+                      setCoverImageUrl(uploadedCoverImageUrl);
+                      
+                      const firstStepId = firstStep.stepId ?? 0;
+                      updateStep(firstStepId, {
+                        imageUrl: uploadedCoverImageUrl,
+                        imageBase64: coverImageBase64
+                      });
+                      
+                      await saveCurrentStep();
+                      console.log('✅ Cover image associated with first step');
+                    }
+                  }
+                } catch (coverError) {
+                  console.error('Error generating cover image:', coverError);
+                }
+              }
+            }
+            
             setResponse(`¡Aventura "${adventureData.title || 'Sin título'}" creada! Hacé clic en "Empezar aventura" para comenzar.`);
           } else {
             throw new Error('Invalid adventure structure');
@@ -116,6 +157,30 @@ const HomeScreen: React.FC = () => {
           <div className="chat-container">
             {response && (
               <div className="response-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+                {coverImageUrl && (
+                  <div style={{ 
+                    marginBottom: '1rem',
+                    borderRadius: '0.5rem',
+                    overflow: 'hidden',
+                    width: '100%',
+                    maxHeight: '400px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img 
+                      src={coverImageUrl}
+                      alt="Portada de la aventura"
+                      style={{ 
+                        width: '100%', 
+                        height: 'auto',
+                        maxHeight: '400px',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="response-header">
                   <h3>Tu aventura generada:</h3>
                 </div>
@@ -135,6 +200,7 @@ const HomeScreen: React.FC = () => {
                       setResponse('');
                       setPrompt('');
                       setHasError(false);
+                      setCoverImageUrl(null);
                     }}
                     variant="secondary"
                     className="new-adventure-button"

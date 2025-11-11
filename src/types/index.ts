@@ -74,6 +74,7 @@ export interface Adventure {
   steps: AdventureStep[];
   conversationId?: string | null;
   threadId?: string | null;
+  coverImageUrl?: string | null;
 }
 
 export interface AdventureDocument extends Adventure {

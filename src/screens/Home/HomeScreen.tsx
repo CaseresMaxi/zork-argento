@@ -15,6 +15,7 @@ const HomeScreen: React.FC = () => {
   const [gameLength, setGameLength] = useState<"corta" | "media" | "larga" | null>(null);
   const [response, setResponse] = useState<string>('');
   const { initializeAdventure, setConversationId, setThreadId } = useAdventureStore();
+  const [HasError, setHasError] = useState<boolean>(false);
 
   const handleLogout = () => {
     logout();
@@ -28,7 +29,6 @@ const HomeScreen: React.FC = () => {
 
   const handleGenerateAdventure = async () => {
     if (!prompt.trim()) return;
-    
     setIsGenerating(true);
     setResponse('');
     
@@ -68,9 +68,11 @@ const HomeScreen: React.FC = () => {
           }
         } catch (e) {
           console.error('Invalid adventure JSON from API:', e);
+          setHasError(true);
           setResponse('Error al procesar la aventura generada. Intentá de nuevo.');
         }
       } else {
+        setHasError(true);
         setResponse('Error al generar la aventura. Intentá de nuevo.');
       }
     } catch (error) {
@@ -121,17 +123,18 @@ const HomeScreen: React.FC = () => {
                   <p>{response}</p>
                 </div>
                 <div className="response-actions" style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-                  <Button
+                  {!HasError && <Button
                     onClick={() => navigate('/chat')}
                     variant="primary"
                     className="start-adventure-button"
                   >
                     ¡Empezar aventura!
-                  </Button>
+                  </Button>}
                   <Button
                     onClick={() => {
                       setResponse('');
                       setPrompt('');
+                      setHasError(false);
                     }}
                     variant="secondary"
                     className="new-adventure-button"
@@ -151,7 +154,7 @@ const HomeScreen: React.FC = () => {
               </div>
             )}
             
-            <div className="chat-input-container">
+            { response === '' && <div className="chat-input-container">
               <div className="chat-input-wrapper">
                 <textarea
                   className="chat-input"
@@ -197,7 +200,7 @@ const HomeScreen: React.FC = () => {
                   {isGenerating ? 'Generando...' : '¡Dale, creá el Zork!'}
                 </Button>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
         

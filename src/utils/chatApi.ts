@@ -40,11 +40,11 @@ export const buildAdventureGenerationPrompt = (userDescription: string, gameLeng
     'Plan narrativo y progresión:\n' +
     '- La aventura debe tener una secuencia lógica de progresión hacia un objetivo final claro, definido al inicio.\n' +
     '- Dividí internamente la historia en etapas: introducción → desarrollo → clímax → resolución.\n' +
-    '- En cada paso, asegurate de que las acciones y consecuencias acerquen o alejen al jugador de cumplir su objetivo, evitando desvíos irrelevantes.\n' +
-    '- La narrativa debe reflejar consecuencias de las decisiones del jugador.\n' +
+    '- En cada paso, asegurate de que las acciones y consecuencias acerquen o alejen al jugador de cumplir su objetivo, evitando desvíos irrelevantes. No permitir tomar atajos del tipo "ganar juego" antes de la cantidad de pasos definida segun la duracion del juego elegida, en caso de usarse penalizarlo en algun stat (lucidez o salud).\n' +
+    '- La narrativa debe reflejar consecuencias de las decisiones del jugador. En caso de que una accion repercuta en los stats (lucidez, salud) ser consistente en los pasos siguientes y explicar brevemente qué causo la modificacion en los stats\n' +
     '\n' +
     'Duración parametrizable:\n' +
-    '- Parámetro "duración": puede ser "corta" (3 a 5 decisiones), "media" (6 a 9 decisiones) o "larga" (10 a 15 decisiones).\n' +
+    '- Parámetro "duración": puede ser "corta" (5 a 8 decisiones), "media" (9 a 12 decisiones) o "larga" (13 a 16 decisiones).\n' +
     '- Usá este parámetro para planificar la complejidad de los desafíos, el número de ubicaciones y la profundidad del desarrollo narrativo.\n' +
     '- En partidas cortas, la historia debe avanzar rápido hacia la resolución; en las largas, incorporar más exploración y subeventos antes del final.\n' +
     '\n' +

@@ -455,35 +455,38 @@ const ChatScreen: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
                         {step.stateAfter && (
-                          <div style={{ 
-                            marginTop: '1rem', 
-                            paddingTop: '1rem', 
-                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                            fontSize: '0.8rem',
-                            opacity: 0.6,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.3rem'
-                          }}>
-                            <div><strong>📍 Ubicación:</strong> {step.stateAfter.location}</div>
-                            {step.stateAfter.inventory && step.stateAfter.inventory.length > 0 && (
-                              <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
-                            )}
-                            {/* <div>
-                              <strong>❤️ Salud:</strong> {step.stateAfter.stats.salud} | 
-                              <strong> 🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}
-                            </div> */}
+                          <div style={{
+                              marginTop: '1rem',
+                              paddingTop: '1rem',
+                              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                              fontSize: '0.8rem',
+                              opacity: 0.6,
+                              display: 'flex',
+                              flexDirection: 'row', // <-- CAMBIO CLAVE: Los dos grupos irán en una fila
+                              justifyContent: 'space-between', // <-- CAMBIO CLAVE: Separa los grupos
+                              gap: '1rem', // Opcional: espacio entre los dos grandes grupos
+                              flexWrap: 'wrap' // Asegura que se ajusten en pantallas pequeñas si fuera necesario
+                              }}>
+                              
+                              {/* === GRUPO IZQUIERDA (Ubicación & Inventario) === */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                  <div><strong>📍 Ubicación:</strong> {step.stateAfter.location}</div>
+                                  
+                                  {step.stateAfter.inventory.length > 0 && (
+                                      <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
+                                  )}
+                              </div>
+                              
+                              {/* === GRUPO DERECHA (Salud & Lucidez) === */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', textAlign: 'right' }}>
+                                  {/* Opcional: Puedes usar textAlign: 'right' para alinear el texto de la derecha */}
+                                  <div><strong>❤️ Salud:</strong> {step.stateAfter.stats.salud}</div>
+                                  <div><strong>🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}</div>
+                              </div>
+
                           </div>
-                        )}
-                        
-                        <div className="message-timestamp">
-                          {toValidDate(step.timestamp).toLocaleTimeString('es-AR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
+                      )}
                       </div>
                     </div>
                   </div>

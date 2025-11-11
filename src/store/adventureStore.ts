@@ -55,7 +55,8 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
       steps, 
       state: step.stateAfter,
       conversationId,
-      threadId
+      threadId,
+      juegoGanado : state.juegoGanado || false
     };
     set({ currentAdventure: updatedAdventure });
   },
@@ -98,7 +99,8 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
           hasConversationId: !!adventure.conversationId,
           hasThreadId: !!adventure.threadId,
           stepsIsArray: Array.isArray(adventure.steps),
-          stepsPreview: adventure.steps?.slice(0, 2).map(s => ({ stepId: s.stepId, narrative: s.narrative?.substring(0, 50) }))
+          stepsPreview: adventure.steps?.slice(0, 2).map(s => ({ stepId: s.stepId, narrative: s.narrative?.substring(0, 50) })),
+          juegoGanado: adventure.juegoGanado
         });
         
         set({ 

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
 import { useAdventureStore } from '../../store';
 import { sendChatMessage } from '../../utils';
+//import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
   id: string;
@@ -59,7 +60,8 @@ const ChatScreen: React.FC = () => {
         adventureId: currentAdventureId,
         hasSteps: !!currentAdventure.steps,
         stepsArray: Array.isArray(currentAdventure.steps),
-        stepsContent: currentAdventure.steps?.slice(0, 2)
+        stepsContent: currentAdventure.steps?.slice(0, 2),
+        juegoGanado: currentAdventure.juegoGanado
       });
     }
   }, [currentAdventure, currentAdventureId, navigate, adventureIsLoading]);
@@ -513,24 +515,7 @@ const ChatScreen: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="input-container">
-            {isGameFinished && (
-              <div
-                style={{
-                  marginBottom: '1rem',
-                  padding: '1rem',
-                  background: 'rgba(34,197,94,0.15)',
-                  borderRadius: '1rem',
-                  textAlign: 'center',
-                  color: '#22c55e',
-                  fontWeight: 'bold',
-                  fontSize: '1.1rem'
-                }}
-              >
-                🎉 ¡Felicitaciones! Has finalizado la aventura. <br />
-                El juego ha terminado.
-              </div>
-            )}
+          {!isGameFinished && <div className="input-container">            
             <div className="input-wrapper">
               <textarea
                 ref={inputRef}
@@ -554,7 +539,24 @@ const ChatScreen: React.FC = () => {
                 </svg>
               </Button>
             </div>
-          </div>
+          </div>}
+          {isGameFinished && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  background: 'rgba(34,197,94,0.15)',
+                  borderRadius: '1rem',
+                  textAlign: 'center',
+                  color: '#22c55e',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem'
+                }}
+              >
+                🎉 ¡Felicitaciones! Has finalizado la aventura. <br />
+                El juego ha terminado. 🎉
+              </div>
+            )}
         </div>
       </main>
     </div>

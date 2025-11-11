@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
+import { useAuth } from '../../hooks';
 import { useAdventureStore } from '../../store';
-import { sendChatMessage, generateImageForChatStep } from '../../utils';
+import { generateImageForChatStep, sendChatMessage } from '../../utils';
+//import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
   id: string;
@@ -65,7 +66,8 @@ const ChatScreen: React.FC = () => {
         adventureId: currentAdventureId,
         hasSteps: !!currentAdventure.steps,
         stepsArray: Array.isArray(currentAdventure.steps),
-        stepsContent: currentAdventure.steps?.slice(0, 2)
+        stepsContent: currentAdventure.steps?.slice(0, 2),
+        juegoGanado: currentAdventure.juegoGanado
       });
       setImageErrors(new Set());
     }
@@ -127,6 +129,8 @@ const ChatScreen: React.FC = () => {
               stepToAppend = raw;
             }
           }
+          // Detectar si el juego terminó
+          currentAdventure.juegoGanado = Boolean(raw?.juegoGanado);
 
           if (stepToAppend && stepToAppend.narrative) {
             const finalStepId = typeof stepToAppend.stepId === 'number' ? stepToAppend.stepId : nextStepId;
@@ -376,7 +380,8 @@ const ChatScreen: React.FC = () => {
   };
 
   // Detectar si el juego terminó
-  const isGameFinished = Boolean(currentAdventure?.state?.flags?.juegoGanado);
+  const isGameFinished = Boolean(currentAdventure?.juegoGanado);
+
 
   return (
     <div className="chat-screen">
@@ -565,7 +570,7 @@ const ChatScreen: React.FC = () => {
                           {step.narrative}
                         </div>
                         
-                        {step.suggestedActions && step.suggestedActions.length > 0 && (
+                        {!isGameFinished && step.suggestedActions && step.suggestedActions.length > 0 && (
                           <div style={{ 
                             marginTop: '1rem', 
                             paddingTop: '1rem', 
@@ -615,35 +620,38 @@ const ChatScreen: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        
                         {step.stateAfter && (
-                          <div style={{ 
-                            marginTop: '1rem', 
-                            paddingTop: '1rem', 
-                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                            fontSize: '0.8rem',
-                            opacity: 0.6,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.3rem'
-                          }}>
-                            <div><strong>📍 Ubicación:</strong> {step.stateAfter.location}</div>
-                            {step.stateAfter.inventory && step.stateAfter.inventory.length > 0 && (
-                              <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
-                            )}
-                            {/* <div>
-                              <strong>❤️ Salud:</strong> {step.stateAfter.stats.salud} | 
-                              <strong> 🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}
-                            </div> */}
+                          <div style={{
+                              marginTop: '1rem',
+                              paddingTop: '1rem',
+                              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                              fontSize: '0.8rem',
+                              opacity: 0.6,
+                              display: 'flex',
+                              flexDirection: 'row', // <-- CAMBIO CLAVE: Los dos grupos irán en una fila
+                              justifyContent: 'space-between', // <-- CAMBIO CLAVE: Separa los grupos
+                              gap: '1rem', // Opcional: espacio entre los dos grandes grupos
+                              flexWrap: 'wrap' // Asegura que se ajusten en pantallas pequeñas si fuera necesario
+                              }}>
+                              
+                              {/* === GRUPO IZQUIERDA (Ubicación & Inventario) === */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                  <div><strong>📍 Ubicación:</strong> {step.stateAfter.location}</div>
+                                  
+                                  {step.stateAfter.inventory.length > 0 && (
+                                      <div><strong>🎒 Inventario:</strong> {step.stateAfter.inventory.join(', ')}</div>
+                                  )}
+                              </div>
+                              
+                              {/* === GRUPO DERECHA (Salud & Lucidez) === */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', textAlign: 'right' }}>
+                                  {/* Opcional: Puedes usar textAlign: 'right' para alinear el texto de la derecha */}
+                                  <div><strong>❤️ Salud:</strong> {step.stateAfter.stats.salud}</div>
+                                  <div><strong>🧠 Lucidez:</strong> {step.stateAfter.stats.lucidez}</div>
+                              </div>
+
                           </div>
-                        )}
-                        
-                        <div className="message-timestamp">
-                          {toValidDate(step.timestamp).toLocaleTimeString('es-AR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
+                      )}
                       </div>
                     </div>
                   </div>
@@ -674,6 +682,7 @@ const ChatScreen: React.FC = () => {
             
             <div ref={messagesEndRef} />
           </div>
+        
 
           {isSavingStep && (
             <div className="saving-step-indicator">
@@ -702,6 +711,7 @@ const ChatScreen: React.FC = () => {
                 El juego ha terminado.
               </div>
             )}
+          {!isGameFinished && <div className="input-container">            
             <div className="input-wrapper">
               <textarea
                 ref={inputRef}
@@ -725,8 +735,26 @@ const ChatScreen: React.FC = () => {
                 </svg>
               </Button>
             </div>
-          </div>
+          </div>}
+          {isGameFinished && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  background: 'rgba(34,197,94,0.15)',
+                  borderRadius: '1rem',
+                  textAlign: 'center',
+                  color: '#22c55e',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem'
+                }}
+              >
+                🎉 ¡Felicitaciones! Has finalizado la aventura. <br />
+                El juego ha terminado. 🎉
+              </div>
+            )}
         </div>
+          </div>
       </main>
     </div>
   );

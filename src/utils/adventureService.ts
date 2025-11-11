@@ -29,6 +29,7 @@ export class AdventureService {
         ...adventure,
         steps: stepsWithoutBase64,
         userId,
+        juegoGanado: adventure.juegoGanado,
         updatedAt: new Date().toISOString()
       };
       
@@ -46,7 +47,8 @@ export class AdventureService {
         stepsCount: adventure.steps?.length,
         stepsWithImagesCount: stepsWithImages,
         hasConversationId: !!adventure.conversationId,
-        hasThreadId: !!adventure.threadId
+        hasThreadId: !!adventure.threadId,
+        juegoGanado: adventure.juegoGanado
       });
 
       const docRef = await addDoc(collection(db, 'users', userId, ADVENTURES_COLLECTION), cleanedData);
@@ -66,6 +68,7 @@ export class AdventureService {
       
       let updateData: Record<string, any> = {
         ...adventure,
+        juegoGanado: adventure.juegoGanado,
         updatedAt: new Date().toISOString()
       };
       
@@ -89,6 +92,7 @@ export class AdventureService {
         fields: Object.keys(cleanedData),
         stepsCount: updateData.steps?.length || 0,
         stepsWithImagesCount: stepsWithImages,
+        juegoGanado: updateData.juegoGanado,
         data: cleanedData
       });
       
@@ -184,7 +188,8 @@ export class AdventureService {
     try {
       const updatePayload: Partial<Adventure> = {
         steps: adventure.steps,
-        state: adventure.state
+        state: adventure.state,
+        juegoGanado: adventure.juegoGanado
       };
       
       const finalConversationId = conversationId || adventure.conversationId;

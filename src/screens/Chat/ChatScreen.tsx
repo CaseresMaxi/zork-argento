@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown } from '../../components';
 import { useAdventureStore } from '../../store';
-import { sendChatMessage } from '../../utils';
+import { sendChatMessage, generateImageForChatStep } from '../../utils';
 
 interface Message {
   id: string;
@@ -26,10 +26,15 @@ const ChatScreen: React.FC = () => {
     threadId,
     setThreadId,
     resetAdventure,
-    isLoading: adventureIsLoading
+    isLoading: adventureIsLoading,
+    updateStep,
+    isSavingStep
   } = useAdventureStore();
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [currentStepId, setCurrentStepId] = useState<number | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -51,6 +56,7 @@ const ChatScreen: React.FC = () => {
     if (!currentAdventure) {
       console.log('⚠️ [ChatScreen] No currentAdventure, navigating to home');
       navigate('/home');
+      setImageErrors(new Set());
     } else {
       const stepsWithImages = currentAdventure.steps?.filter(s => s.imageBase64) || [];
       console.log('📖 [ChatScreen] Adventure loaded:', {
@@ -61,6 +67,7 @@ const ChatScreen: React.FC = () => {
         stepsArray: Array.isArray(currentAdventure.steps),
         stepsContent: currentAdventure.steps?.slice(0, 2)
       });
+      setImageErrors(new Set());
     }
   }, [currentAdventure, currentAdventureId, navigate, adventureIsLoading]);
 
@@ -77,10 +84,10 @@ const ChatScreen: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [currentAdventure?.steps]);
+  }, [currentAdventure?.steps, isLoadingImage]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !currentAdventure) return;
+    if (!inputValue.trim() || isLoadingChat || !currentAdventure) return;
 
     const playerText = inputValue.trim();
     const steps = currentAdventure.steps || [];
@@ -89,16 +96,14 @@ const ChatScreen: React.FC = () => {
     const nextTurnIndex = lastStep ? lastStep.turnIndex + 1 : 0;
 
     setInputValue('');
-    setIsLoading(true);
+    setIsLoadingChat(true);
 
     try {
       const result = await sendChatMessage(
         playerText,
         conversationId || undefined,
         { stepId: nextStepId, turnIndex: nextTurnIndex },
-        threadId || undefined,
-        user?.id,
-        currentAdventureId || undefined
+        threadId || undefined
       );
 
       if (result.success) {
@@ -124,29 +129,31 @@ const ChatScreen: React.FC = () => {
           }
 
           if (stepToAppend && stepToAppend.narrative) {
+            const finalStepId = typeof stepToAppend.stepId === 'number' ? stepToAppend.stepId : nextStepId;
+            const imagePrompt = stepToAppend.imagePrompt ?? 'fantasy illustration, cinematic, high detail';
+            
             const safeStep = {
-              stepId: typeof stepToAppend.stepId === 'number' ? stepToAppend.stepId : nextStepId,
+              stepId: finalStepId,
               turnIndex: typeof stepToAppend.turnIndex === 'number' ? stepToAppend.turnIndex : nextTurnIndex,
               timestamp: typeof stepToAppend.timestamp === 'string' ? stepToAppend.timestamp : new Date().toISOString(),
               playerInput: typeof stepToAppend.playerInput === 'string' ? stepToAppend.playerInput : playerText,
               narrative: stepToAppend.narrative,
-              imagePrompt: stepToAppend.imagePrompt ?? 'fantasy illustration, cinematic, high detail',
+              imagePrompt: imagePrompt,
               imageSeed: stepToAppend.imageSeed ?? Math.floor(Math.random() * 1000000),
-              imageUrl: result.imageUrl || stepToAppend.imageUrl || null,
-              imageBase64: result.imageBase64 ?? null,
+              imageUrl: null,
+              imageBase64: null,
               suggestedActions: Array.isArray(stepToAppend.suggestedActions) ? stepToAppend.suggestedActions : [],
               stateAfter: stepToAppend.stateAfter ?? currentAdventure.state
             };
             
             appendStep(safeStep);
+            setCurrentStepId(finalStepId);
             
             console.log('🎯 [ChatScreen] Step appended, attempting to save...', {
               currentAdventureId,
               userId: user?.id,
               stepId: safeStep.stepId,
-              totalSteps: currentAdventure.steps.length + 1,
-              hasImageUrl: !!safeStep.imageUrl,
-              hasImageBase64: !!safeStep.imageBase64
+              totalSteps: currentAdventure.steps.length + 1
             });
             
             if (!currentAdventureId && user?.id) {
@@ -155,12 +162,55 @@ const ChatScreen: React.FC = () => {
               console.log('✅ [ChatScreen] Adventure saved');
             }
             
-            if (currentAdventureId && user?.id) {
+            const updatedAdventureId = useAdventureStore.getState().currentAdventureId || currentAdventureId;
+            
+            if (updatedAdventureId && user?.id) {
               await saveCurrentStep();
-            } else if (!currentAdventureId && user?.id) {
+            } else if (!updatedAdventureId && user?.id) {
               console.log('⚠️ [ChatScreen] Adventure was just created, steps already saved');
             } else {
               console.warn('⚠️ [ChatScreen] Could not save step - missing userId or adventureId');
+            }
+            
+            setIsLoadingChat(false);
+            
+            if (imagePrompt && stepToAppend.narrative) {
+              setIsLoadingImage(true);
+              try {
+                const imageResult = await generateImageForChatStep(
+                  stepToAppend.narrative,
+                  imagePrompt,
+                  finalStepId,
+                  user?.id,
+                  updatedAdventureId || undefined
+                );
+                
+                if (imageResult.imageBase64 || imageResult.imageUrl) {
+                  updateStep(finalStepId, {
+                    imageBase64: imageResult.imageBase64 || null,
+                    imageUrl: imageResult.imageUrl || null
+                  });
+                  
+                  setImageErrors(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(finalStepId);
+                    return newSet;
+                  });
+                  
+                  const finalAdventureId = useAdventureStore.getState().currentAdventureId;
+                  if (finalAdventureId && user?.id) {
+                    await saveCurrentStep();
+                  }
+                } else {
+                  setImageErrors(prev => new Set(prev).add(finalStepId));
+                }
+              } catch (imageError) {
+                console.error('Error generating image:', imageError);
+                setImageErrors(prev => new Set(prev).add(finalStepId));
+              } finally {
+                setIsLoadingImage(false);
+                setCurrentStepId(null);
+              }
             }
           } else {
             console.error('Invalid or missing narrative in step from API:', raw);
@@ -185,6 +235,7 @@ const ChatScreen: React.FC = () => {
             if (currentAdventureId && user?.id) {
               await saveCurrentStep();
             }
+            setIsLoadingChat(false);
           }
         } catch (parseError) {
           console.error('Error parsing step JSON from API:', parseError, 'Raw response:', result.message);
@@ -209,6 +260,7 @@ const ChatScreen: React.FC = () => {
           if (user?.id) {
             await saveCurrentStep();
           }
+          setIsLoadingChat(false);
         }
       } else {
         const errorStep = {
@@ -232,6 +284,7 @@ const ChatScreen: React.FC = () => {
         if (user?.id) {
           await saveCurrentStep();
         }
+        setIsLoadingChat(false);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -256,8 +309,7 @@ const ChatScreen: React.FC = () => {
       if (user?.id) {
         await saveCurrentStep();
       }
-    } finally {
-      setIsLoading(false);
+      setIsLoadingChat(false);
     }
   };
 
@@ -275,6 +327,52 @@ const ChatScreen: React.FC = () => {
   const handleGoBack = () => {
     resetAdventure();
     navigate('/home');
+  };
+
+  const handleRetryImage = async (stepId: number) => {
+    if (!currentAdventure || isLoadingImage) return;
+    
+    const step = currentAdventure.steps?.find(s => s.stepId === stepId);
+    if (!step || !step.imagePrompt || !step.narrative) return;
+    
+    setIsLoadingImage(true);
+    setCurrentStepId(stepId);
+    
+    try {
+      const updatedAdventureId = useAdventureStore.getState().currentAdventureId || currentAdventureId;
+      const imageResult = await generateImageForChatStep(
+        step.narrative,
+        step.imagePrompt,
+        stepId,
+        user?.id,
+        updatedAdventureId || undefined
+      );
+      
+      if (imageResult.imageBase64 || imageResult.imageUrl) {
+        updateStep(stepId, {
+          imageBase64: imageResult.imageBase64 || null,
+          imageUrl: imageResult.imageUrl || null
+        });
+        
+        setImageErrors(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(stepId);
+          return newSet;
+        });
+        
+        if (updatedAdventureId && user?.id) {
+          await saveCurrentStep();
+        }
+      } else {
+        setImageErrors(prev => new Set(prev).add(stepId));
+      }
+    } catch (imageError) {
+      console.error('Error regenerating image:', imageError);
+      setImageErrors(prev => new Set(prev).add(stepId));
+    } finally {
+      setIsLoadingImage(false);
+      setCurrentStepId(null);
+    }
   };
 
   // Detectar si el juego terminó
@@ -376,7 +474,7 @@ const ChatScreen: React.FC = () => {
                         <span className="avatar-icon">🎮</span>
                       </div>
                       <div className="message-bubble">
-                        {(step.imageUrl || step.imageBase64) && (
+                        {(step.imageUrl || step.imageBase64) ? (
                           <div style={{ 
                             marginBottom: '1rem',
                             borderRadius: '0.5rem',
@@ -394,7 +492,75 @@ const ChatScreen: React.FC = () => {
                               }}
                             />
                           </div>
-                        )}
+                        ) : (isLoadingImage && currentStepId === stepId) ? (
+                          <div style={{ 
+                            marginBottom: '1rem',
+                            borderRadius: '0.5rem',
+                            overflow: 'hidden',
+                            width: '100%',
+                            maxWidth: '512px',
+                            minHeight: '200px',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            border: '2px dashed rgba(139, 92, 246, 0.3)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '1rem',
+                            padding: '2rem'
+                          }}>
+                            <div className="image-loading-spinner"></div>
+                            <span className="image-loading-text">Generando imagen...</span>
+                          </div>
+                        ) : (imageErrors.has(stepId) && step.imagePrompt) ? (
+                          <div 
+                            onClick={() => handleRetryImage(stepId)}
+                            style={{ 
+                              marginBottom: '1rem',
+                              borderRadius: '0.5rem',
+                              overflow: 'hidden',
+                              width: '100%',
+                              maxWidth: '512px',
+                              minHeight: '200px',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '2px dashed rgba(239, 68, 68, 0.3)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '1rem',
+                              padding: '2rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                            }}
+                            className="image-error-placeholder"
+                          >
+                            <div style={{ fontSize: '2rem' }}>🖼️</div>
+                            <span style={{ 
+                              fontSize: '0.875rem',
+                              color: 'rgba(239, 68, 68, 0.9)',
+                              fontWeight: 500,
+                              textAlign: 'center'
+                            }}>
+                              Error al generar imagen
+                            </span>
+                            <span style={{ 
+                              fontSize: '0.75rem',
+                              color: 'rgba(239, 68, 68, 0.7)',
+                              textAlign: 'center'
+                            }}>
+                              Click para intentar de nuevo
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="message-text">
                           {step.narrative}
                         </div>
@@ -419,8 +585,8 @@ const ChatScreen: React.FC = () => {
                               {step.suggestedActions.map((action, actionIdx) => (
                                 <button
                                   key={`action-${stepId}-${actionIdx}`}
-                                  onClick={() => !isLoading && setInputValue(action)}
-                                  disabled={isLoading}
+                                  onClick={() => !isLoadingChat && setInputValue(action)}
+                                  disabled={isLoadingChat}
                                   style={{
                                     padding: '0.4rem 0.8rem',
                                     fontSize: '0.85rem',
@@ -428,12 +594,12 @@ const ChatScreen: React.FC = () => {
                                     border: '1px solid rgba(139, 92, 246, 0.4)',
                                     borderRadius: '1rem',
                                     color: 'inherit',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                                    cursor: isLoadingChat ? 'not-allowed' : 'pointer',
                                     transition: 'all 0.2s ease',
-                                    opacity: isLoading ? 0.5 : 1
+                                    opacity: isLoadingChat ? 0.5 : 1
                                   }}
                                   onMouseEnter={(e) => {
-                                    if (!isLoading) {
+                                    if (!isLoadingChat) {
                                       e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.3)';
                                       e.currentTarget.style.transform = 'translateY(-2px)';
                                     }
@@ -486,7 +652,7 @@ const ChatScreen: React.FC = () => {
                 })
             )}
             
-            {isLoading && (
+            {isLoadingChat && (
               <div className="message-wrapper assistant-message-wrapper">
                 <div className="message-content-wrapper">
                   <div className="message-avatar">
@@ -508,6 +674,15 @@ const ChatScreen: React.FC = () => {
             
             <div ref={messagesEndRef} />
           </div>
+
+          {isSavingStep && (
+            <div className="saving-step-indicator">
+              <div className="saving-step-content">
+                <div className="saving-step-spinner"></div>
+                <span className="saving-step-text">Guardando paso...</span>
+              </div>
+            </div>
+          )}
 
           <div className="input-container">
             {isGameFinished && (
@@ -536,11 +711,11 @@ const ChatScreen: React.FC = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 rows={1}
-                disabled={isLoading || isGameFinished}
+                disabled={isLoadingChat || isGameFinished}
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || isGameFinished}
+                disabled={!inputValue.trim() || isLoadingChat || isGameFinished}
                 className="send-button-chat"
                 variant="primary"
               >

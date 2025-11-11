@@ -16,6 +16,7 @@ interface AdventureStore {
   appendStep: (step: AdventureStep) => void;
   resetAdventure: () => void;
   setImageUrlForStep: (stepId: number, url: string) => void;
+  updateStep: (stepId: number, updates: Partial<AdventureStep>) => void;
   saveAdventure: (userId: string) => Promise<void>;
   loadAdventure: (adventureId: string, userId: string) => Promise<void>;
   saveCurrentStep: () => Promise<void>;
@@ -66,6 +67,12 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     const state = get().currentAdventure;
     if (!state) return;
     const steps = state.steps.map((s) => (s.stepId === stepId ? { ...s, imageUrl: url } : s));
+    set({ currentAdventure: { ...state, steps } });
+  },
+  updateStep: (stepId, updates) => {
+    const state = get().currentAdventure;
+    if (!state) return;
+    const steps = state.steps.map((s) => (s.stepId === stepId ? { ...s, ...updates } : s));
     set({ currentAdventure: { ...state, steps } });
   },
   saveAdventure: async (userId: string) => {

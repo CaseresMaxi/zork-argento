@@ -81,7 +81,7 @@ export const sendChatMessage = async (
   try {
     const headers = new Headers({
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY, // Add API key header
+      'x-api-key': API_KEY,
     });
 
     const response = await fetch('/api/chat', {
@@ -102,7 +102,6 @@ export const sendChatMessage = async (
     }
 
     const data = await response.json();
-    // eslint-disable-next-line no-console
     console.log('API response:', data);
     const root: any = data && typeof data === 'object' ? data : {};
     const inner: any = 'data' in root ? root.data : root;
@@ -115,53 +114,6 @@ export const sendChatMessage = async (
     const apiThreadId = inner?.threadId ?? root.threadId;
     const timestamp = inner?.timestamp ?? root.timestamp;
 
-    let imageBase64: string | null = null;
-    let imageUrl: string | null = null;
-    try {
-      const parsedPayload = typeof nestedMessage === 'string' ? JSON.parse(nestedMessage) : nestedMessage;
-      
-      let narrative = '';
-      let imagePrompt = '';
-      let stepId = step?.stepId ?? 0;
-      
-      if (parsedPayload && typeof parsedPayload === 'object') {
-        if (Array.isArray(parsedPayload.steps) && parsedPayload.steps.length > 0) {
-          const lastStep = parsedPayload.steps[parsedPayload.steps.length - 1];
-          narrative = lastStep?.narrative || '';
-          imagePrompt = lastStep?.imagePrompt || '';
-          stepId = lastStep?.stepId ?? stepId;
-        } else if (parsedPayload.narrative) {
-          narrative = parsedPayload.narrative;
-          imagePrompt = parsedPayload.imagePrompt || '';
-          stepId = parsedPayload.stepId ?? stepId;
-        }
-      }
-      
-      if (narrative || imagePrompt) {
-        console.log('🎨 Generating image for step...');
-        imageBase64 = await generateImageForStep(narrative, imagePrompt);
-        if (imageBase64) {
-          console.log('✅ Image generated successfully');
-          
-          if (userId && adventureId) {
-            console.log('📤 Uploading image to Firebase Storage...');
-            imageUrl = await uploadImageToStorage(imageBase64, userId, adventureId, stepId);
-            if (imageUrl) {
-              console.log('✅ Image uploaded to Storage:', imageUrl);
-            } else {
-              console.log('⚠️ Image upload failed, but base64 is available');
-            }
-          } else {
-            console.log('⚠️ userId or adventureId not provided, skipping upload');
-          }
-        } else {
-          console.log('⚠️ Image generation failed or returned null');
-        }
-      }
-    } catch (imageError) {
-      console.error('Error during image generation:', imageError);
-    }
-
     return {
       message: finalMessage,
       success: true,
@@ -169,8 +121,8 @@ export const sendChatMessage = async (
       conversationId: convId,
       threadId: apiThreadId,
       timestamp,
-      imageBase64,
-      imageUrl,
+      imageBase64: null,
+      imageUrl: null,
     };
   } catch (error) {
     console.error('Error calling chat API:', error);
@@ -179,4 +131,41 @@ export const sendChatMessage = async (
       success: false,
     };
   }
+};
+
+export const generateImageForChatStep = async (
+  narrative: string,
+  imagePrompt: string,
+  stepId: number,
+  userId?: string,
+  adventureId?: string
+): Promise<{ imageBase64: string | null; imageUrl: string | null }> => {
+  let imageBase64: string | null = null;
+  let imageUrl: string | null = null;
+  
+  try {
+    console.log('🎨 Generating image for step...');
+    imageBase64 = await generateImageForStep(narrative, imagePrompt);
+    if (imageBase64) {
+      console.log('✅ Image generated successfully');
+      
+      if (userId && adventureId) {
+        console.log('📤 Uploading image to Firebase Storage...');
+        imageUrl = await uploadImageToStorage(imageBase64, userId, adventureId, stepId);
+        if (imageUrl) {
+          console.log('✅ Image uploaded to Storage:', imageUrl);
+        } else {
+          console.log('⚠️ Image upload failed, but base64 is available');
+        }
+      } else {
+        console.log('⚠️ userId or adventureId not provided, skipping upload');
+      }
+    } else {
+      console.log('⚠️ Image generation failed or returned null');
+    }
+  } catch (imageError) {
+    console.error('Error during image generation:', imageError);
+  }
+  
+  return { imageBase64, imageUrl };
 };

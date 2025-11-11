@@ -78,6 +78,7 @@ const ChatScreen: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [currentAdventure?.steps]);
+  
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading || !currentAdventure) return;
@@ -122,6 +123,8 @@ const ChatScreen: React.FC = () => {
               stepToAppend = raw;
             }
           }
+          // Detectar si el juego terminó
+          currentAdventure.juegoGanado = Boolean(raw?.juegoGanado);
 
           if (stepToAppend && stepToAppend.narrative) {
             const safeStep = {
@@ -278,7 +281,8 @@ const ChatScreen: React.FC = () => {
   };
 
   // Detectar si el juego terminó
-  const isGameFinished = Boolean(currentAdventure?.state?.flags?.juegoGanado);
+  const isGameFinished = Boolean(currentAdventure?.juegoGanado);
+
 
   return (
     <div className="chat-screen">

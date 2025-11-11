@@ -70,6 +70,7 @@ export interface Adventure {
   userId?: string;
   seed?: number;
   state: AdventureStateSnapshot;
+  juegoGanado: boolean;
   steps: AdventureStep[];
   conversationId?: string | null;
   threadId?: string | null;

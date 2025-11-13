@@ -11,7 +11,7 @@ interface ChatResponse {
 
 import { generateImageForStep, uploadImageToStorage } from './imageService';
 
-const API_KEY = import.meta.env.ZORK_API_KEY || ''; // Ensure API key is a string
+const API_KEY = import.meta.env.ZORK_API_KEY || '';
 
 export const buildAdventureGenerationPrompt = (userDescription: string, gameLength?:string): string => {
   gameLength = gameLength || 'media';

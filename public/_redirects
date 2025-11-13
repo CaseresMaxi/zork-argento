@@ -1,0 +1,2 @@
+/api/*  https://zork-argento-api.onrender.com/api/:splat  200
+/openai/*  https://api.openai.com/:splat  200

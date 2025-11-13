@@ -12,6 +12,10 @@ interface ChatResponse {
 import { generateImageForStep, uploadImageToStorage } from './imageService';
 
 const API_KEY = import.meta.env.ZORK_API_KEY || '';
+const isProduction = import.meta.env.PROD;
+const API_BASE_URL = isProduction
+  ? 'https://zork-argento-api.onrender.com'
+  : '';
 
 export const buildAdventureGenerationPrompt = (userDescription: string, gameLength?:string): string => {
   gameLength = gameLength || 'media';
@@ -101,7 +105,7 @@ export const sendChatMessage = async (
       'x-api-key': API_KEY,
     });
 
-    const response = await fetch('/api/chat', {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(

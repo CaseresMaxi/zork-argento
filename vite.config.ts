@@ -10,7 +10,6 @@ export default defineConfig({
         target: 'https://zork-argento-api.onrender.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/openai': {
         target: 'https://api.openai.com',

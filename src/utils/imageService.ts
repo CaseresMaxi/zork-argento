@@ -2,10 +2,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
-const isProduction = import.meta.env.PROD;
-const OPENAI_API_URL = isProduction
-  ? 'https://api.openai.com/v1/images/generations'
-  : '/openai/v1/images/generations';
+const OPENAI_API_URL = '/openai/v1/images/generations';
 
 interface ImageGenerationResponse {
   created: number;

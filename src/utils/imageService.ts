@@ -133,10 +133,110 @@ export const generateImageForStep = async (
 const extractSceneFromNarrative = (narrative: string): string => {
   const sentences = narrative.split('.').filter(s => s.trim().length > 0);
   const firstSentence = sentences[0]?.trim() || narrative;
-  
-  return firstSentence.length > 200 
-    ? firstSentence.substring(0, 200) 
+
+  return firstSentence.length > 200
+    ? firstSentence.substring(0, 200)
     : firstSentence;
+};
+
+// Audio TTS Functions
+export const generateAudioFromText = async (text: string): Promise<string | null> => {
+  if (!OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not configured');
+    return null;
+  }
+
+  try {
+    console.log('🔊 Generating audio for text...');
+
+    const response = await fetch('/openai/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: text,
+        voice: 'nova', // Voz clara y expresiva en español
+        response_format: 'mp3',
+        speed: 1.0
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('TTS API error:', errorData);
+      return null;
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    console.log('✅ Audio generated successfully');
+    return audioUrl;
+  } catch (error) {
+    console.error('Error generating audio with OpenAI TTS:', error);
+    return null;
+  }
+};
+
+export const uploadAudioToStorage = async (
+  audioBlob: Blob,
+  userId: string,
+  adventureId: string,
+  stepId: number
+): Promise<string | null> => {
+  try {
+    const audioPath = `adventures/${userId}/${adventureId}/audio-step-${stepId}-${Date.now()}.mp3`;
+    const storageRef = ref(storage, audioPath);
+
+    await uploadBytes(storageRef, audioBlob);
+
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log('✅ Audio uploaded to Firebase Storage:', downloadURL);
+
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading audio to Firebase Storage:', error);
+    return null;
+  }
+};
+
+export const generateAudioForStep = async (
+  narrative: string,
+  userId?: string,
+  adventureId?: string,
+  stepId?: number
+): Promise<string | null> => {
+  try {
+    console.log('🔊 Generating audio for narrative...');
+    const audioUrl = await generateAudioFromText(narrative);
+
+    if (audioUrl && userId && adventureId && stepId !== undefined) {
+      console.log('📤 Uploading audio to Firebase Storage...');
+      // Convert URL to blob for upload
+      const response = await fetch(audioUrl);
+      const audioBlob = await response.blob();
+
+      const storageUrl = await uploadAudioToStorage(audioBlob, userId, adventureId, stepId);
+      if (storageUrl) {
+        console.log('✅ Audio uploaded to Storage:', storageUrl);
+        // Clean up the temporary URL
+        URL.revokeObjectURL(audioUrl);
+        return storageUrl;
+      } else {
+        console.log('⚠️ Audio upload failed, returning temporary URL');
+        return audioUrl; // Return temporary URL if upload fails
+      }
+    }
+
+    console.log('⚠️ Audio generated but not uploaded (missing userId/adventureId/stepId)');
+    return audioUrl; // Return temporary URL if upload not requested
+  } catch (error) {
+    console.error('Error in generateAudioForStep:', error);
+    return null;
+  }
 };
 
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, UserDropdown } from '../../components';
 import { useAuth } from '../../hooks';
 import { useAdventureStore } from '../../store';
-import { generateImageForChatStep, sendChatMessage } from '../../utils';
+import { generateImageForChatStep, generateAudioForStep, sendChatMessage } from '../../utils';
 //import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
@@ -36,6 +36,8 @@ const ChatScreen: React.FC = () => {
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [currentStepId, setCurrentStepId] = useState<number | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const [audioStates, setAudioStates] = useState<{[key: number]: { isLoading: boolean; isPlaying: boolean; audioUrl?: string }}>({});
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -53,23 +55,41 @@ const ChatScreen: React.FC = () => {
       console.log('⏳ [ChatScreen] Adventure is loading...');
       return;
     }
-    
+
     if (!currentAdventure) {
       console.log('⚠️ [ChatScreen] No currentAdventure, navigating to home');
       navigate('/home');
       setImageErrors(new Set());
+      setAudioStates({});
     } else {
       const stepsWithImages = currentAdventure.steps?.filter(s => s.imageBase64) || [];
+      const stepsWithAudio = currentAdventure.steps?.filter(s => s.audioUrl) || [];
+
       console.log('📖 [ChatScreen] Adventure loaded:', {
         stepsCount: currentAdventure.steps?.length || 0,
         stepsWithImagesCount: stepsWithImages.length,
+        stepsWithAudioCount: stepsWithAudio.length,
         adventureId: currentAdventureId,
         hasSteps: !!currentAdventure.steps,
         stepsArray: Array.isArray(currentAdventure.steps),
         stepsContent: currentAdventure.steps?.slice(0, 2),
         juegoGanado: currentAdventure.juegoGanado
       });
+
       setImageErrors(new Set());
+
+      // Initialize audio states for existing audio URLs
+      const initialAudioStates: {[key: number]: { isLoading: boolean; isPlaying: boolean; audioUrl?: string }} = {};
+      currentAdventure.steps?.forEach(step => {
+        if (step.audioUrl) {
+          initialAudioStates[step.stepId] = {
+            isLoading: false,
+            isPlaying: false,
+            audioUrl: step.audioUrl
+          };
+        }
+      });
+      setAudioStates(initialAudioStates);
     }
   }, [currentAdventure, currentAdventureId, navigate, adventureIsLoading]);
 
@@ -335,13 +355,13 @@ const ChatScreen: React.FC = () => {
 
   const handleRetryImage = async (stepId: number) => {
     if (!currentAdventure || isLoadingImage) return;
-    
+
     const step = currentAdventure.steps?.find(s => s.stepId === stepId);
     if (!step || !step.imagePrompt || !step.narrative) return;
-    
+
     setIsLoadingImage(true);
     setCurrentStepId(stepId);
-    
+
     try {
       const updatedAdventureId = useAdventureStore.getState().currentAdventureId || currentAdventureId;
       const imageResult = await generateImageForChatStep(
@@ -351,19 +371,19 @@ const ChatScreen: React.FC = () => {
         user?.id,
         updatedAdventureId || undefined
       );
-      
+
       if (imageResult.imageBase64 || imageResult.imageUrl) {
         updateStep(stepId, {
           imageBase64: imageResult.imageBase64 || null,
           imageUrl: imageResult.imageUrl || null
         });
-        
+
         setImageErrors(prev => {
           const newSet = new Set(prev);
           newSet.delete(stepId);
           return newSet;
         });
-        
+
         if (updatedAdventureId && user?.id) {
           await saveCurrentStep();
         }
@@ -376,6 +396,151 @@ const ChatScreen: React.FC = () => {
     } finally {
       setIsLoadingImage(false);
       setCurrentStepId(null);
+    }
+  };
+
+  const handleGenerateAudio = async (stepId: number, narrative: string) => {
+    // Stop any currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+
+      // Find and stop the currently playing audio
+      const currentlyPlayingStepId = Object.keys(audioStates).find(key =>
+        audioStates[parseInt(key)]?.isPlaying
+      );
+
+      if (currentlyPlayingStepId) {
+        setAudioStates(prev => ({
+          ...prev,
+          [parseInt(currentlyPlayingStepId)]: {
+            ...prev[parseInt(currentlyPlayingStepId)],
+            isPlaying: false
+          }
+        }));
+      }
+    }
+
+    // Set loading state
+    setAudioStates(prev => ({
+      ...prev,
+      [stepId]: { ...prev[stepId], isLoading: true, isPlaying: false }
+    }));
+
+    try {
+      const updatedAdventureId = useAdventureStore.getState().currentAdventureId || currentAdventureId;
+      const audioUrl = await generateAudioForStep(
+        narrative,
+        user?.id,
+        updatedAdventureId || undefined,
+        stepId
+      );
+
+      if (audioUrl) {
+        setAudioStates(prev => ({
+          ...prev,
+          [stepId]: { isLoading: false, isPlaying: true, audioUrl }
+        }));
+
+        // Save audio URL to the step if it was uploaded to Firebase Storage
+        if (audioUrl.includes('firebasestorage')) {
+          updateStep(stepId, { audioUrl });
+          if (currentAdventureId && user?.id) {
+            saveCurrentStep();
+          }
+        }
+
+        // Create and play audio
+        const audio = new Audio(audioUrl);
+        setCurrentAudio(audio);
+
+        audio.onended = () => {
+          setAudioStates(prev => ({
+            ...prev,
+            [stepId]: { ...prev[stepId], isPlaying: false }
+          }));
+          setCurrentAudio(null);
+        };
+
+        audio.onerror = () => {
+          setAudioStates(prev => ({
+            ...prev,
+            [stepId]: { isLoading: false, isPlaying: false }
+          }));
+          setCurrentAudio(null);
+        };
+
+        await audio.play();
+      } else {
+        setAudioStates(prev => ({
+          ...prev,
+          [stepId]: { isLoading: false, isPlaying: false }
+        }));
+      }
+    } catch (error) {
+      console.error('Error generating or playing audio:', error);
+      setAudioStates(prev => ({
+        ...prev,
+        [stepId]: { isLoading: false, isPlaying: false }
+      }));
+    }
+  };
+
+  const handleToggleAudio = async (stepId: number, narrative: string) => {
+    const currentState = audioStates[stepId];
+    const step = currentAdventure?.steps?.find(s => s.stepId === stepId);
+
+    // Check if step has saved audioUrl from Firebase
+    if (step?.audioUrl && !currentState?.audioUrl) {
+      setAudioStates(prev => ({
+        ...prev,
+        [stepId]: { isLoading: false, isPlaying: false, audioUrl: step.audioUrl || undefined }
+      }));
+    }
+
+    const updatedState = audioStates[stepId] || currentState;
+
+    if (updatedState?.isPlaying) {
+      // Stop current audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        setCurrentAudio(null);
+      }
+      setAudioStates(prev => ({
+        ...prev,
+        [stepId]: { ...prev[stepId], isPlaying: false }
+      }));
+    } else if (updatedState?.audioUrl) {
+      // Play existing audio
+      const audio = new Audio(updatedState.audioUrl);
+      setCurrentAudio(audio);
+      setAudioStates(prev => ({
+        ...prev,
+        [stepId]: { ...prev[stepId], isPlaying: true }
+      }));
+
+      audio.onended = () => {
+        setAudioStates(prev => ({
+          ...prev,
+          [stepId]: { ...prev[stepId], isPlaying: false }
+        }));
+        setCurrentAudio(null);
+      };
+
+      audio.onerror = () => {
+        setAudioStates(prev => ({
+          ...prev,
+          [stepId]: { isLoading: false, isPlaying: false }
+        }));
+        setCurrentAudio(null);
+      };
+
+      await audio.play();
+    } else {
+      // Generate new audio
+      await handleGenerateAudio(stepId, narrative);
     }
   };
 
@@ -568,6 +733,81 @@ const ChatScreen: React.FC = () => {
                         ) : null}
                         <div className="message-text">
                           {step.narrative}
+                        </div>
+
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          marginTop: '0.5rem'
+                        }}>
+                          <button
+                            onClick={() => handleToggleAudio(step.stepId, step.narrative)}
+                            disabled={audioStates[step.stepId]?.isLoading}
+                            style={{
+                              padding: '0.4rem 0.8rem',
+                              fontSize: '0.85rem',
+                              backgroundColor: audioStates[step.stepId]?.isPlaying
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : 'rgba(139, 92, 246, 0.2)',
+                              border: audioStates[step.stepId]?.isPlaying
+                                ? '1px solid rgba(239, 68, 68, 0.4)'
+                                : '1px solid rgba(139, 92, 246, 0.4)',
+                              borderRadius: '1rem',
+                              color: 'inherit',
+                              cursor: audioStates[step.stepId]?.isLoading ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s ease',
+                              opacity: audioStates[step.stepId]?.isLoading ? 0.5 : 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.3rem'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!audioStates[step.stepId]?.isLoading) {
+                                const isPlaying = audioStates[step.stepId]?.isPlaying;
+                                e.currentTarget.style.backgroundColor = isPlaying
+                                  ? 'rgba(239, 68, 68, 0.3)'
+                                  : 'rgba(139, 92, 246, 0.3)';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              const isPlaying = audioStates[step.stepId]?.isPlaying;
+                              e.currentTarget.style.backgroundColor = isPlaying
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : 'rgba(139, 92, 246, 0.2)';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            {audioStates[step.stepId]?.isLoading ? (
+                              <>
+                                <div style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  border: '2px solid currentColor',
+                                  borderTop: '2px solid transparent',
+                                  borderRadius: '50%',
+                                  animation: 'spin 1s linear infinite'
+                                }}></div>
+                                Generando...
+                              </>
+                            ) : audioStates[step.stepId]?.isPlaying ? (
+                              <>
+                                <span>⏸️</span>
+                                Pausar
+                              </>
+                            ) : audioStates[step.stepId]?.audioUrl ? (
+                              <>
+                                <span>▶️</span>
+                                Reproducir
+                              </>
+                            ) : (
+                              <>
+                                <span>🔊</span>
+                                Escuchar
+                              </>
+                            )}
+                          </button>
                         </div>
                         
                         {!isGameFinished && step.suggestedActions && step.suggestedActions.length > 0 && (

@@ -54,6 +54,7 @@ export interface AdventureStep {
   imageSeed?: number;
   imageUrl?: string | null;
   imageBase64?: string | null;
+  audioUrl?: string | null;
   suggestedActions?: string[];
 
   stateAfter: AdventureStateSnapshot;

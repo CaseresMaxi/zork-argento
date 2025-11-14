@@ -99,9 +99,10 @@ export const sendChatMessage = async (
     const headers = new Headers({
       'Content-Type': 'application/json',
       'x-api-key': API_KEY,
+  
     });
 
-    const response = await fetch('/api/chat', {
+    const response = await fetch('https://zork-argento-api.onrender.com/api/chat', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(

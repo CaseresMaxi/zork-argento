@@ -2,7 +2,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
-const OPENAI_API_URL = '/openai/v1/images/generations';
+const OPENAI_API_URL = 'https://api.openai.com/v1/images/generations';
 
 interface ImageGenerationResponse {
   created: number;
@@ -149,7 +149,7 @@ export const generateAudioFromText = async (text: string): Promise<string | null
   try {
     console.log('🔊 Generating audio for text...');
 
-    const response = await fetch('/openai/v1/audio/speech', {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

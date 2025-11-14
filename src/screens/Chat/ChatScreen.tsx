@@ -976,23 +976,6 @@ const ChatScreen: React.FC = () => {
               </Button>
             </div>
           </div>}
-          {isGameFinished && (
-              <div
-                style={{
-                  marginBottom: '1rem',
-                  padding: '1rem',
-                  background: 'rgba(34,197,94,0.15)',
-                  borderRadius: '1rem',
-                  textAlign: 'center',
-                  color: '#22c55e',
-                  fontWeight: 'bold',
-                  fontSize: '1.1rem'
-                }}
-              >
-                🎉 ¡Felicitaciones! Has finalizado la aventura. <br />
-                El juego ha terminado. 🎉
-              </div>
-            )}
         </div>
           </div>
       </main>

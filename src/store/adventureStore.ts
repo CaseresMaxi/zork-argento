@@ -16,6 +16,7 @@ interface AdventureStore {
   appendStep: (step: AdventureStep) => void;
   resetAdventure: () => void;
   setImageUrlForStep: (stepId: number, url: string) => void;
+  updateStep: (stepId: number, updates: Partial<AdventureStep>) => void;
   saveAdventure: (userId: string) => Promise<void>;
   loadAdventure: (adventureId: string, userId: string) => Promise<void>;
   saveCurrentStep: () => Promise<void>;
@@ -55,7 +56,8 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
       steps, 
       state: step.stateAfter,
       conversationId,
-      threadId
+      threadId,
+      juegoGanado : state.juegoGanado || false
     };
     set({ currentAdventure: updatedAdventure });
   },
@@ -66,6 +68,12 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     const state = get().currentAdventure;
     if (!state) return;
     const steps = state.steps.map((s) => (s.stepId === stepId ? { ...s, imageUrl: url } : s));
+    set({ currentAdventure: { ...state, steps } });
+  },
+  updateStep: (stepId, updates) => {
+    const state = get().currentAdventure;
+    if (!state) return;
+    const steps = state.steps.map((s) => (s.stepId === stepId ? { ...s, ...updates } : s));
     set({ currentAdventure: { ...state, steps } });
   },
   saveAdventure: async (userId: string) => {
@@ -85,10 +93,23 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     }
   },
   loadAdventure: async (adventureId: string, userId: string) => {
+    console.log('🔄 [loadAdventure] Starting to load adventure:', { adventureId, userId });
     set({ isLoading: true, error: null });
     try {
       const adventure = await AdventureService.getAdventure(adventureId, userId);
       if (adventure) {
+        const stepsWithImages = adventure.steps?.filter(s => s.imageBase64) || [];
+        console.log('📖 [loadAdventure] Adventure loaded in store:', {
+          adventureId,
+          stepsCount: adventure.steps?.length || 0,
+          stepsWithImagesCount: stepsWithImages.length,
+          hasConversationId: !!adventure.conversationId,
+          hasThreadId: !!adventure.threadId,
+          stepsIsArray: Array.isArray(adventure.steps),
+          stepsPreview: adventure.steps?.slice(0, 2).map(s => ({ stepId: s.stepId, narrative: s.narrative?.substring(0, 50) })),
+          juegoGanado: adventure.juegoGanado
+        });
+        
         set({ 
           currentAdventure: adventure, 
           currentAdventureId: adventureId, 
@@ -97,15 +118,26 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
           threadId: adventure.threadId || null,
           isLoading: false 
         });
+        
+        console.log('✅ [loadAdventure] Adventure state updated in store');
       } else {
+        console.warn('⚠️ [loadAdventure] Adventure not found');
         set({ error: 'Adventure not found', isLoading: false });
       }
     } catch (error) {
+      console.error('❌ [loadAdventure] Error loading adventure:', error);
       set({ error: error instanceof Error ? error.message : 'Failed to load adventure', isLoading: false });
     }
   },
   saveCurrentStep: async () => {
-    const { currentAdventure, currentAdventureId, currentUserId, conversationId, threadId, isSavingStep } = get();
+    const { isSavingStep } = get();
+    
+    if (isSavingStep) {
+      console.log('⏸️ [saveCurrentStep] Already saving, skipping...');
+      return;
+    }
+    
+    const { currentAdventure, currentAdventureId, currentUserId, conversationId, threadId } = get();
     
     console.log('🔍 [saveCurrentStep] Attempting to save step:', {
       hasAdventure: !!currentAdventure,
@@ -116,11 +148,6 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
       stepsCount: currentAdventure?.steps?.length,
       isSavingStep
     });
-    
-    if (isSavingStep) {
-      console.log('⏸️ [saveCurrentStep] Already saving, skipping...');
-      return;
-    }
     
     if (!currentAdventure || !currentAdventureId || !currentUserId) {
       console.warn('⚠️ [saveCurrentStep] Missing required data:', {
@@ -134,18 +161,26 @@ export const useAdventureStore = create<AdventureStore>((set, get) => ({
     try {
       set({ isSavingStep: true });
       
+      const adventureToSave = get().currentAdventure;
+      if (!adventureToSave) {
+        throw new Error('Adventure not found in store');
+      }
+      
       console.log('💾 [saveCurrentStep] Saving to Firebase:', {
         adventureId: currentAdventureId,
         userId: currentUserId,
         conversationId,
         threadId,
-        steps: currentAdventure.steps.length,
-        lastStep: currentAdventure.steps[currentAdventure.steps.length - 1]
+        steps: adventureToSave.steps.length,
+        stepIds: adventureToSave.steps.map(s => s.stepId),
+        lastStep: adventureToSave.steps[adventureToSave.steps.length - 1],
+        lastStepHasImage: !!adventureToSave.steps[adventureToSave.steps.length - 1]?.imageBase64,
+        totalStepsWithImages: adventureToSave.steps.filter(s => s.imageBase64).length
       });
       
       await AdventureService.saveAdventureStep(
         currentAdventureId, 
-        currentAdventure, 
+        adventureToSave, 
         currentUserId,
         conversationId,
         threadId

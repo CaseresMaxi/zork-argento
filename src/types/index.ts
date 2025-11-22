@@ -53,6 +53,8 @@ export interface AdventureStep {
   imagePrompt: string;
   imageSeed?: number;
   imageUrl?: string | null;
+  imageBase64?: string | null;
+  audioUrl?: string | null;
   suggestedActions?: string[];
 
   stateAfter: AdventureStateSnapshot;
@@ -69,9 +71,11 @@ export interface Adventure {
   userId?: string;
   seed?: number;
   state: AdventureStateSnapshot;
+  juegoGanado: boolean;
   steps: AdventureStep[];
   conversationId?: string | null;
   threadId?: string | null;
+  coverImageUrl?: string | null;
 }
 
 export interface AdventureDocument extends Adventure {

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import { Button, UserDropdown, AdventureList } from '../../components';
-import { sendChatMessage, buildAdventureGenerationPrompt } from '../../utils';
+import { sendChatMessage, buildAdventureGenerationPrompt, generateImageForStep, uploadCoverImageToStorage } from '../../utils';
 import { useAdventureStore } from '../../store';
+import { useAdventureStore as adventureStore } from '../../store/adventureStore';
 
 // listado mock removido
 
@@ -12,8 +13,11 @@ const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [gameLength, setGameLength] = useState<"corta" | "media" | "larga">("media");
   const [response, setResponse] = useState<string>('');
-  const { initializeAdventure, setConversationId, setThreadId } = useAdventureStore();
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const { initializeAdventure, setConversationId, setThreadId, saveAdventure, updateStep, saveCurrentStep } = useAdventureStore();
+  const [HasError, setHasError] = useState<boolean>(false);
 
   const handleLogout = () => {
     logout();
@@ -27,15 +31,15 @@ const HomeScreen: React.FC = () => {
 
   const handleGenerateAdventure = async () => {
     if (!prompt.trim()) return;
-    
     setIsGenerating(true);
     setResponse('');
+    setCoverImageUrl(null);
     
     try {
       const uniqueConversationId = generateUniqueId();
       setConversationId(uniqueConversationId);
       
-      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim());
+      const adventurePrompt = buildAdventureGenerationPrompt(prompt.trim(), gameLength);
       
       const result = await sendChatMessage(adventurePrompt, uniqueConversationId);
       
@@ -61,15 +65,55 @@ const HomeScreen: React.FC = () => {
             }
             
             initializeAdventure(adventureData);
+            
+            if (user?.id) {
+              await saveAdventure(user.id);
+              const adventureId = adventureStore.getState().currentAdventureId;
+              
+              if (adventureId && adventureData.steps[0]) {
+                const firstStep = adventureData.steps[0];
+                const coverImagePrompt = firstStep.imagePrompt || firstStep.narrative;
+                
+                try {
+                  console.log('🎨 Generating cover image for adventure...');
+                  const coverImageBase64 = await generateImageForStep(firstStep.narrative, coverImagePrompt);
+                  
+                  if (coverImageBase64) {
+                    const uploadedCoverImageUrl = await uploadCoverImageToStorage(coverImageBase64, user.id, adventureId);
+                    
+                    if (uploadedCoverImageUrl) {
+                      const { AdventureService } = await import('../../utils/adventureService');
+                      await AdventureService.updateAdventure(adventureId, { coverImageUrl: uploadedCoverImageUrl }, user.id);
+                      console.log('✅ Cover image saved:', uploadedCoverImageUrl);
+                      setCoverImageUrl(uploadedCoverImageUrl);
+                      
+                      const firstStepId = firstStep.stepId ?? 0;
+                      updateStep(firstStepId, {
+                        imageUrl: uploadedCoverImageUrl,
+                        imageBase64: coverImageBase64
+                      });
+                      
+                      await saveCurrentStep();
+                      console.log('✅ Cover image associated with first step');
+                    }
+                  }
+                } catch (coverError) {
+                  console.error('Error generating cover image:', coverError);
+                }
+              }
+            }
+            
             setResponse(`¡Aventura "${adventureData.title || 'Sin título'}" creada! Hacé clic en "Empezar aventura" para comenzar.`);
           } else {
             throw new Error('Invalid adventure structure');
           }
         } catch (e) {
           console.error('Invalid adventure JSON from API:', e);
+          setHasError(true);
           setResponse('Error al procesar la aventura generada. Intentá de nuevo.');
         }
       } else {
+        setHasError(true);
         setResponse('Error al generar la aventura. Intentá de nuevo.');
       }
     } catch (error) {
@@ -113,6 +157,30 @@ const HomeScreen: React.FC = () => {
           <div className="chat-container">
             {response && (
               <div className="response-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+                {coverImageUrl && (
+                  <div style={{ 
+                    marginBottom: '1rem',
+                    borderRadius: '0.5rem',
+                    overflow: 'hidden',
+                    width: '100%',
+                    maxHeight: '400px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img 
+                      src={coverImageUrl}
+                      alt="Portada de la aventura"
+                      style={{ 
+                        width: '100%', 
+                        height: 'auto',
+                        maxHeight: '400px',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="response-header">
                   <h3>Tu aventura generada:</h3>
                 </div>
@@ -120,17 +188,19 @@ const HomeScreen: React.FC = () => {
                   <p>{response}</p>
                 </div>
                 <div className="response-actions" style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-                  <Button
+                  {!HasError && <Button
                     onClick={() => navigate('/chat')}
                     variant="primary"
                     className="start-adventure-button"
                   >
                     ¡Empezar aventura!
-                  </Button>
+                  </Button>}
                   <Button
                     onClick={() => {
                       setResponse('');
                       setPrompt('');
+                      setHasError(false);
+                      setCoverImageUrl(null);
                     }}
                     variant="secondary"
                     className="new-adventure-button"
@@ -150,7 +220,7 @@ const HomeScreen: React.FC = () => {
               </div>
             )}
             
-            <div className="chat-input-container">
+            { response === '' && <div className="chat-input-container">
               <div className="chat-input-wrapper">
                 <textarea
                   className="chat-input"
@@ -161,6 +231,32 @@ const HomeScreen: React.FC = () => {
                   rows={3}
                   disabled={isGenerating}
                 />
+
+                {/* 🔹 Selector de duración */}
+                <div 
+                    style={{ 
+                        marginTop: "0.5rem", /* Margen superior para separarlo del textarea */
+                        marginBottom: "0.25rem", /* Margen inferior para separarlo de los botones */
+                        fontSize: "0.9rem", 
+                        color: "#AAA" /* Color sutil */
+                    }}
+                >
+                    Elegí la duración de tu partida:
+                </div>
+                <div className="duration-selector" style={{ marginTop: "0.25rem", display: "flex", gap: "0.25rem" }}>
+                  {["corta", "media", "larga"].map((option) => (
+                    <Button
+                      key={option}
+                      size='sm'
+                      variant={gameLength === option ? "secondary" : "outline"}
+                      onClick={() => setGameLength(option as "corta" | "media" | "larga")}
+                      disabled={isGenerating}
+                      className='duration-selector'
+                    >
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </Button>
+                  ))}
+                </div>
                 <Button
                   onClick={handleGenerateAdventure}
                   disabled={isGenerating}
@@ -170,7 +266,7 @@ const HomeScreen: React.FC = () => {
                   {isGenerating ? 'Generando...' : '¡Dale, creá el Zork!'}
                 </Button>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
         

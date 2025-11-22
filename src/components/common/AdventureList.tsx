@@ -72,6 +72,30 @@ export const AdventureList: React.FC<AdventureListProps> = ({ onSelectAdventure 
           className=""
           style={{borderBottom: '1px solid white'}}
         >
+          {adventure.coverImageUrl && (
+            <div style={{ 
+              marginBottom: '1rem',
+              borderRadius: '0.5rem',
+              overflow: 'hidden',
+              width: '100%',
+              maxHeight: '200px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <img 
+                src={adventure.coverImageUrl}
+                alt={`Portada de ${adventure.title}`}
+                style={{ 
+                  width: '100%', 
+                  height: 'auto',
+                  maxHeight: '200px',
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
+            </div>
+          )}
           <div className="flex justify-between items-start" style={{marginBottom: 0}}>
             <h3 className="font-medium text-white" style={{marginBottom: 8}}>{adventure.title}</h3>
               <span className="text-xs text-gray-500">

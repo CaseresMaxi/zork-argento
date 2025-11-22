@@ -4,7 +4,7 @@ interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
-  variant?: 'primary' | 'secondary' | 'danger' | 'google';
+  variant?: 'primary' | 'secondary' | 'danger' | 'google' | 'outline';
   disabled?: boolean;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -26,7 +26,8 @@ const Button: React.FC<ButtonProps> = ({
     primary: 'btn-primary',
     secondary: 'btn-secondary',
     danger: 'btn-danger',
-    google: 'btn-google'
+    google: 'btn-google',
+    outline: 'btn-outline'
   };
   
   const sizeClasses = {
